@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ERP POS LITE - Simplificado</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  
+  <style>
+    :root {
+      --primary-color: #055de2; --primary-dark: #091933; --primary-light: #e8f2fc;
+      --success-color: #28a745; --danger-color: #dc3545; --warning-color: #ffc107;
+      --bg-body: #f4f6f9; --bg-card: #ffffff; --bg-sidebar: #091933;
+      --text-main: #1f2937; --text-muted: #6b7280; --border-color: #e5e7eb;
+      --radius: 8px; --radius-lg: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg-body); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden;}
+    .hidden { display: none !important; }
+    
+    .sidebar { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100;}
+    .logo { padding: 1.5rem; color: white; font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-nav { flex: 1; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px;}
+    .sidebar-nav a { padding: 12px 16px; color: rgba(255,255,255,0.8); text-decoration: none; border-radius: var(--radius); display: flex; align-items: center; gap: 10px; font-weight: 500;}
+    .sidebar-nav a:hover, .sidebar-nav a.active { background: var(--primary-color); color: white; }
+    
+    .main-content { flex: 1; margin-left: 240px; padding: 2rem; }
+    .content-section { display: none; }
+    .content-section.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    h2 { margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; }
+    .btn { padding: 10px 16px; border: none; border-radius: var(--radius); cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .primary-btn { background: var(--primary-color); color: white; }
+    .secondary-btn { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); }
+    .danger-btn { background: var(--danger-color); color: white; }
+    .warning-btn { background: var(--warning-color); color: #000; }
+    
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: var(--radius); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+
+    /* POS GRID LAYOUT */
+    .pos-layout { display: grid; grid-template-columns: 1fr 380px; gap: 1.5rem; align-items: start; }
+    .productos-grid-container { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--border-color); }
+    .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; margin-top: 1rem; max-height: 600px; overflow-y: auto; padding-right: 5px; }
+    .producto-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; display: flex; flex-direction: column; }
+    .producto-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: var(--primary-color); }
+    .producto-img { width: 100%; height: 120px; object-fit: cover; background: var(--bg-body); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2rem;}
+    .producto-info { padding: 10px; text-align: center; background: white; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+    .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; }
+
+    .carrito-panel { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); position: sticky; top: 2rem; }
+    .carrito-items { max-height: 300px; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
+    .carrito-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bg-body); }
+    .carrito-qty { display: flex; align-items: center; gap: 5px; }
+    .carrito-qty button { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border-color); background: white; cursor: pointer; }
+    .input-calculo { font-size: 1.3rem !important; font-weight: bold; background: var(--bg-body); text-align: right; }
+
+    .data-table-container { overflow-x: auto; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 1rem; }
+    .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .data-table th, .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
+    .data-table th { background: var(--bg-body); font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); }
+
+    /* Notificaciones */
+    .toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: var(--primary-dark); color: white; padding: 12px 20px; border-radius: var(--radius); font-weight: 500; display: flex; align-items: center; gap: 10px; opacity: 0; transform: translateY(-10px); transition: 0.3s; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast-success { border-left: 5px solid var(--success-color); }
+    .toast-error { border-left: 5px solid var(--danger-color); }
+    
+    .spinner-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 5000; display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: 600; color: var(--primary-color); }
+  </style>
+</head>
+<body>
+
+<div id="toastContainer" class="toast-container"></div>
+<div id="spinnerOverlay" class="spinner-overlay hidden"><i class="fas fa-circle-notch fa-spin fa-3x" style="margin-bottom:1rem;"></i> <span id="spinnerLabel">Cargando...</span></div>
+
+<!-- LOGIN (Simplificado) -->
+<div id="loginScreen" style="position:fixed; inset:0; z-index:10000; background:var(--primary-dark); display:flex; align-items:center; justify-content:center;">
+  <div style="background:white; padding:3rem; border-radius:var(--radius-lg); width:100%; max-width:400px; text-align:center;">
+    <h2 style="color:var(--text-main); justify-content:center;">ERP POS LITE</h2>
+    <div class="form-group"><input type="text" id="login_usuario" placeholder="Usuario (admin)"></div>
+    <div class="form-group"><input type="password" id="login_password" placeholder="Contraseña (admin123)"></div>
+    <button class="btn primary-btn" style="width:100%" onclick="handleLogin()">Ingresar</button>
+  </div>
+</div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo"><i class="fas fa-store"></i> MI NEGOCIO</div>
+  <nav class="sidebar-nav">
+    <a href="#" data-section="ventas" class="active"><i class="fas fa-cash-register"></i> Punto de Venta</a>
+    <a href="#" data-section="cambios"><i class="fas fa-hand-holding-usd"></i> Cambios Pend.</a>
+    <a href="#" data-section="inventario"><i class="fas fa-boxes"></i> Inventario</a>
+    <a href="#" data-section="productos"><i class="fas fa-plus-circle"></i> Reg. Producto</a>
+    <a href="#" data-section="categorias"><i class="fas fa-tags"></i> Categorías</a>
+    <a href="#" data-section="reportes"><i class="fas fa-chart-line"></i> Reportes</a>
+    <a href="#" data-section="responsables"><i class="fas fa-users"></i> Responsables</a>
+    <a href="#" data-section="papelera"><i class="fas fa-trash-alt"></i> Papelera</a>
+  </nav>
+</aside>
+
+<main class="main-content" id="mainApp">
+  
+  <!-- PUNTO DE VENTA -->
+  <section id="ventas" class="content-section active">
+    <h2><i class="fas fa-cash-register"></i> Punto de Venta</h2>
+    
+    <div class="pos-layout">
+      <!-- Izquierda: Cuadrícula de Productos -->
+      <div class="productos-grid-container">
+        <div class="form-group" style="margin-bottom:0;">
+          <input type="text" id="v_buscar_grid" placeholder="🔎 Buscar producto..." oninput="filtrarGridPOS()">
+        </div>
+        <div class="productos-grid" id="posProductosGrid">
+          <p class="text-muted text-center" style="grid-column: 1/-1; padding: 2rem;">Cargando catálogo...</p>
+        </div>
+      </div>
+
+      <!-- Derecha: Panel de Carrito y Pago -->
+      <div class="carrito-panel">
+        <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px;"><i class="fas fa-shopping-cart"></i> Carrito</h3>
+        <div class="form-group">
+          <label>Cliente (Opcional):</label>
+          <input type="text" id="v_cliente" placeholder="Nombre del cliente">
+        </div>
+        
+        <div class="carrito-items" id="carritoItems">
+          <p class="text-muted text-center">Carrito vacío</p>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+          <div style="display:flex; justify-content:space-between; font-size:1.2rem; font-weight:800; margin-bottom: 10px;">
+            <span>Total a pagar:</span><span id="c_total" data-val="0">$0.00</span>
+          </div>
+          <div class="form-group">
+            <label>Cliente Paga con ($):</label>
+            <input type="number" id="v_pago_con" class="input-calculo" placeholder="0.00" oninput="calcularCambio()">
+          </div>
+          <div class="form-group">
+            <label style="color:var(--danger-color);">Cambio / Vuelto:</label>
+            <input type="text" id="v_cambio" class="input-calculo" readonly value="$0.00" style="color:var(--danger-color);">
+          </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn primary-btn" style="width:100%; height: 50px; font-size: 1.1rem;" onclick="finalizarVenta(false)">
+            <i class="fas fa-check-circle"></i> Registrar Cobro Exitoso
+          </button>
+          <button class="btn warning-btn" style="width:100%; height: 40px;" onclick="finalizarVenta(true)">
+            <i class="fas fa-clock"></i> QUEDA PENDIENTE (Cambio no entregado)
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAMBIOS PENDIENTES -->
+  <section id="cambios" class="content-section">
+    <h2><i class="fas fa-hand-holding-usd"></i> Control de Cambios Pendientes</h2>
+    <p class="text-muted" style="margin-bottom: 1rem;">Vueltos que no se entregaron al momento de la venta y quedan pendientes de pagar al cliente.</p>
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Monto Pendiente</th><th>Estado</th><th>Acción</th></tr></thead>
+        <tbody id="cambiosBody"><tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- INVENTARIO -->
+  <section id="inventario" class="content-section">
+    <h2><i class="fas fa-boxes"></i> Inventario</h2>
+    <div class="form-group"><input type="text" id="f_texto" placeholder="🔎 Filtrar inventario..." oninput="renderInventario()"></div>
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead><tr><th>Img</th><th>Nombre</th><th>Categoría</th><th>Stock</th><th>P.Venta</th></tr></thead>
+        <tbody id="inventarioBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- REGISTRO DE PRODUCTOS -->
+  <section id="productos" class="content-section">
+    <h2><i class="fas fa-plus-circle"></i> Registrar Nuevo Producto</h2>
+    <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color);">
+      <form id="productoForm" class="form-grid">
+        <div class="form-group"><label>Nombre del Producto:</label><input type="text" id="p_nombre" required></div>
+        <div class="form-group"><label>Categoría:</label><select id="p_categoria" required></select></div>
+        <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="p_precio_venta" required step="0.01"></div>
+        <div class="form-group"><label>Stock Inicial:</label><input type="number" id="p_stock" required min="0"></div>
+        <div class="form-group">
+          <label>Imagen del Producto:</label>
+          <input type="file" id="p_imagen_file" accept="image/*">
+          <input type="hidden" id="p_imagen_base64">
+          <input type="hidden" id="p_imagen_nombre">
+          <input type="hidden" id="p_imagen_mime">
+          <div id="p_imagen_preview" style="margin-top: 10px; max-height: 150px; overflow: hidden; border-radius: 8px;"></div>
+        </div>
+        <div style="grid-column: 1/-1;"><button type="button" class="btn primary-btn" onclick="guardarProducto()"><i class="fas fa-save"></i> Guardar Producto</button></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- CATEGORIAS -->
+  <section id="categorias" class="content-section">
+    <h2><i class="fas fa-tags"></i> Categorías</h2>
+    <div class="form-grid"><div class="form-group"><input type="text" id="c_nombre" placeholder="Nueva Categoría"></div><button class="btn primary-btn" style="height:42px" onclick="agregarCategoria()">Agregar</button></div>
+    <div class="data-table-container"><table class="data-table"><thead><tr><th>Nombre</th></tr></thead><tbody id="categoriasBody"></tbody></table></div>
+  </section>
+
+  <!-- REPORTES -->
+  <section id="reportes" class="content-section">
+    <h2><i class="fas fa-chart-line"></i> Reportes Generales</h2>
+    <p class="text-muted" style="margin-bottom: 1rem;">Historial de ventas registradas.</p>
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th></tr></thead>
+        <tbody id="reportesBody"></tbody>
+      </table>
+    </div>
+  </section>
+  
+  <!-- RESPONSABLES -->
+  <section id="responsables" class="content-section">
+    <h2><i class="fas fa-users"></i> Responsables (Avisos Automáticos)</h2>
+    <p class="text-muted">Añade correos para recibir avisos de ventas grandes, stock bajo y copias de seguridad.</p>
+    <div class="data-table-container" style="margin-top: 1rem;">
+      <table class="data-table">
+        <thead><tr><th>Correo</th><th>Reportes</th></tr></thead>
+        <tbody id="responsablesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PAPELERA -->
+  <section id="papelera" class="content-section">
+    <h2><i class="fas fa-trash-alt"></i> Papelera</h2>
+    <div class="data-table-container"><table class="data-table"><thead><tr><th>Tipo</th><th>Datos</th><th>Fecha</th></tr></thead><tbody id="papeleraBody"></tbody></table></div>
+  </section>
+
+</main>
+
+<script>
+  // ¡PON TU ENLACE REAL AQUI!
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdv3CQlgdo_UX1cGbAeFm6CWQxGbqraUBSH_quHKW0XQ5oSJ-drQrbUNtM60VNv6xZ/exec";
+
+  let inventarioGlobal = [];
+  let carrito = [];
+  let categoriasGlobal = [];
+
+  function showSpinner(msg='Cargando...') { document.getElementById('spinnerLabel').textContent=msg; document.getElementById('spinnerOverlay').classList.remove('hidden'); }
+  function hideSpinner() { document.getElementById('spinnerOverlay').classList.add('hidden'); }
+  function showToast(msg, type='success') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div'); t.className = `toast toast-${type}`;
+    t.innerHTML = `<span>${msg}</span>`;
+    c.appendChild(t); setTimeout(()=>t.classList.add('show'), 10);
+    setTimeout(()=>{t.classList.remove('show'); setTimeout(()=>t.remove(), 300);}, 3000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.sidebar-nav a').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+        link.classList.add('active');
+        const id = link.getAttribute('data-section');
+        document.getElementById(id).classList.add('active');
+        if(id==='inventario'||id==='ventas') loadInventario();
+        if(id==='cambios') loadCambios();
+        if(id==='reportes') loadReportes();
+        if(id==='papelera') loadPapelera();
+        if(id==='responsables') loadResponsables();
+      });
+    });
+
+    // Evento de preview de imagen
+    document.getElementById('p_imagen_file').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('p_imagen_nombre').value = file.name;
+      document.getElementById('p_imagen_mime').value = file.type;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        document.getElementById('p_imagen_base64').value = ev.target.result.split(',')[1];
+        document.getElementById('p_imagen_preview').innerHTML = `<img src="${ev.target.result}" style="max-width:100%; height:auto;">`;
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  async function handleLogin() {
+    const u = document.getElementById('login_usuario').value;
+    const p = document.getElementById('login_password').value;
+    if(u==='admin'&&p==='admin123') {
+      document.getElementById('loginScreen').style.display='none';
+      await loadInitialData();
+    } else { showToast('Credenciales incorrectas','error'); }
+  }
+
+  async function loadInitialData() {
+    showSpinner('Cargando datos...');
+    try {
+      const resCat = await fetch(`${SCRIPT_URL}?action=getCategorias`).then(r=>r.json());
+      if(resCat.status==='success') {
+        categoriasGlobal = resCat.data;
+        const sel = document.getElementById('p_categoria');
+        sel.innerHTML = '<option value="">Seleccione...</option>' + categoriasGlobal.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+        document.getElementById('categoriasBody').innerHTML = categoriasGlobal.map(c=>`<tr><td>${c.nombre}</td></tr>`).join('');
+      }
+      await loadInventario();
+    } catch(e) { showToast('Error al cargar datos','error'); }
+    hideSpinner();
+  }
+
+  async function loadInventario() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getInventario`).then(r=>r.json());
+      if(res.status==='success') {
+        inventarioGlobal = res.data;
+        renderGridPOS();
+        renderInventario();
+      }
+    } catch(e){}
+  }
+
+  // --- PUNTO DE VENTA (GRID) ---
+  function renderGridPOS() {
+    const q = document.getElementById('v_buscar_grid').value.toLowerCase();
+    const cont = document.getElementById('posProductosGrid');
+    const filtrados = inventarioGlobal.filter(p => p.nombre.toLowerCase().includes(q));
+    
+    if(!filtrados.length) { cont.innerHTML='<p class="text-muted text-center" style="grid-column:1/-1; padding:2rem;">No hay productos</p>'; return; }
+    
+    cont.innerHTML = filtrados.map(p => {
+      const imgHtml = p.imagen_url ? `<img src="${p.imagen_url}" class="producto-img">` : `<div class="producto-img"><i class="fas fa-box"></i></div>`;
+      return `
+      <div class="producto-card" onclick="addToCart('${p.id}')">
+        ${imgHtml}
+        <div class="producto-info">
+          <div class="producto-nombre">${p.nombre}</div>
+          <div class="producto-precio">$${parseFloat(p.precio_venta||0).toFixed(2)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filtrarGridPOS() { renderGridPOS(); }
+
+  function addToCart(id) {
+    const p = inventarioGlobal.find(x => x.id === id);
+    if(!p) return;
+    const item = carrito.find(x => x.producto_id === id);
+    if(item) item.cantidad++;
+    else carrito.push({ producto_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_venta) });
+    renderCarrito();
+    showToast(`Agregado: ${p.nombre}`);
+  }
+
+  function renderCarrito() {
+    const cont = document.getElementById('carritoItems');
+    if(!carrito.length) { 
+      cont.innerHTML = '<p class="text-muted text-center">Carrito vacío</p>'; 
+      document.getElementById('c_total').textContent='$0.00'; 
+      document.getElementById('c_total').dataset.val='0';
+      calcularCambio();
+      return; 
+    }
+    
+    let total = 0;
+    cont.innerHTML = carrito.map((it, idx) => {
+      const sub = it.cantidad * it.precio_unitario;
+      total += sub;
+      return `
+      <div class="carrito-item">
+        <div style="flex:1; font-size:0.9rem; font-weight:600;">${it.nombre}</div>
+        <div class="carrito-qty">
+          <button onclick="cambiarQty(${idx}, -1)">-</button>
+          <span style="width:20px; text-align:center;">${it.cantidad}</span>
+          <button onclick="cambiarQty(${idx}, 1)">+</button>
+        </div>
+        <div style="width:60px; text-align:right; font-weight:bold;">$${sub.toFixed(2)}</div>
+      </div>`;
+    }).join('');
+    
+    document.getElementById('c_total').textContent=`$${total.toFixed(2)}`;
+    document.getElementById('c_total').dataset.val=total;
+    calcularCambio();
+  }
+
+  function cambiarQty(idx, delta) {
+    carrito[idx].cantidad += delta;
+    if(carrito[idx].cantidad <= 0) carrito.splice(idx, 1);
+    renderCarrito();
+  }
+
+  function calcularCambio() {
+    const total = parseFloat(document.getElementById('c_total').dataset.val) || 0;
+    const pago = parseFloat(document.getElementById('v_pago_con').value) || 0;
+    const cambio = pago - total;
+    document.getElementById('v_cambio').value = cambio >= 0 ? `$${cambio.toFixed(2)}` : '$0.00';
+  }
+
+  async function finalizarVenta(quedaPendiente) {
+    if(!carrito.length) return showToast('Carrito vacío','warning');
+    const total = parseFloat(document.getElementById('c_total').dataset.val) || 0;
+    const pago = parseFloat(document.getElementById('v_pago_con').value) || 0;
+    const cambio = pago > total ? (pago - total) : 0;
+
+    if (quedaPendiente && cambio <= 0) {
+      return showToast('No hay vuelto que dejar pendiente.', 'error');
+    }
+    if (quedaPendiente && !document.getElementById('v_cliente').value.trim()) {
+      return showToast('Para dejar cambio pendiente, debes ingresar el nombre del cliente.', 'error');
+    }
+
+    showSpinner('Registrando venta...');
+    const payload = {
+      action: 'registrarVenta',
+      cliente_nombre: document.getElementById('v_cliente').value,
+      pago_con: pago,
+      cambio: cambio,
+      pendiente: quedaPendiente,
+      items: carrito,
+      usuario: 'admin'
+    };
+
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
+      if(res.status==='success') {
+        showToast(quedaPendiente ? 'Venta registrada. Cambio PENDIENTE.' : 'Venta registrada con éxito.');
+        carrito=[]; renderCarrito();
+        document.getElementById('v_cliente').value='';
+        document.getElementById('v_pago_con').value='';
+        await loadInventario();
+      } else showToast(res.message, 'error');
+    } catch(e) { showToast('Error de red', 'error'); }
+    hideSpinner();
+  }
+
+  // --- CAMBIOS PENDIENTES ---
+  async function loadCambios() {
+    const body = document.getElementById('cambiosBody');
+    body.innerHTML = '<tr><td colspan="5" class="text-center">Cargando...</td></tr>';
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getCambios`).then(r=>r.json());
+      if(res.status==='success') {
+        const pendientes = res.data.filter(c => c.estado === 'Pendiente').sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+        if(!pendientes.length) { body.innerHTML='<tr><td colspan="5" class="text-center">No hay cambios pendientes.</td></tr>'; return; }
+        body.innerHTML = pendientes.map(c => `
+          <tr>
+            <td>${new Date(c.fecha).toLocaleDateString()}</td>
+            <td><b>${c.cliente_nombre}</b></td>
+            <td style="color:var(--danger-color); font-weight:bold;">$${parseFloat(c.monto||0).toFixed(2)}</td>
+            <td><span style="background:var(--warning-color); padding:2px 8px; border-radius:10px; font-size:0.8rem;">Pendiente</span></td>
+            <td><button class="btn success-btn" style="background:var(--success-color); color:white; padding:6px 10px;" onclick="marcarPagado('${c.id}')"><i class="fas fa-check"></i> Entregado</button></td>
+          </tr>
+        `).join('');
+      }
+    } catch(e) {}
+  }
+
+  async function marcarPagado(id) {
+    if(!confirm('¿Confirmar que el cambio fue entregado al cliente?')) return;
+    showSpinner('Actualizando...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'marcarCambioPagado', id:id})}).then(r=>r.json());
+      if(res.status==='success') { showToast('Marcado como entregado.'); loadCambios(); }
+    } catch(e) { showToast('Error de red', 'error'); }
+    hideSpinner();
+  }
+
+  // --- REGISTRAR PRODUCTO (CON IMAGEN) ---
+  async function guardarProducto() {
+    const n = document.getElementById('p_nombre').value;
+    const c = document.getElementById('p_categoria').value;
+    const pv = document.getElementById('p_precio_venta').value;
+    const st = document.getElementById('p_stock').value;
+    if(!n || !c || !pv || !st) return showToast('Completa los campos','error');
+
+    showSpinner('Guardando producto...');
+    const payload = { action:'agregarProducto', nombre:n, categoria:c, precio_venta:pv, stock:st };
+
+    const base64 = document.getElementById('p_imagen_base64').value;
+    if (base64) {
+      try {
+        const imgRes = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({
+          action:'subirImagenProducto', 
+          base64: base64, 
+          mimeType: document.getElementById('p_imagen_mime').value, 
+          filename: document.getElementById('p_imagen_nombre').value
+        })}).then(r=>r.json());
+        if(imgRes.status==='success') payload.imagen_url = imgRes.url;
+      } catch(e) { console.error(e); }
+    }
+
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
+      if(res.status==='success') {
+        showToast('Producto guardado');
+        document.getElementById('productoForm').reset();
+        document.getElementById('p_imagen_preview').innerHTML = '';
+        document.getElementById('p_imagen_base64').value = '';
+        await loadInventario();
+      } else showToast(res.message,'error');
+    } catch(e){ showToast('Error','error'); }
+    hideSpinner();
+  }
+
+  // --- TABLAS SIMPLES ---
+  function renderInventario() {
+    const q = document.getElementById('f_texto').value.toLowerCase();
+    const html = inventarioGlobal.filter(p=>p.nombre.toLowerCase().includes(q)).map(p=>`
+      <tr>
+        <td>${p.imagen_url ? `<img src="${p.imagen_url}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : `<i class="fas fa-box" style="font-size:24px;color:#ccc;"></i>`}</td>
+        <td><b>${p.nombre}</b></td>
+        <td>${p['categoría']}</td>
+        <td>${p.stock}</td>
+        <td>$${parseFloat(p.precio_venta||0).toFixed(2)}</td>
+      </tr>
+    `).join('');
+    document.getElementById('inventarioBody').innerHTML = html || '<tr><td colspan="5">Sin datos</td></tr>';
+  }
+
+  async function loadReportes() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getVentas`).then(r=>r.json());
+      if(res.status==='success') {
+        document.getElementById('reportesBody').innerHTML = res.data.map(v=>`
+          <tr><td>${new Date(v.fecha).toLocaleDateString()}</td><td>${v.cliente_nombre||'N/A'}</td><td><b>$${parseFloat(v.total).toFixed(2)}</b></td><td>Completada</td></tr>
+        `).join('');
+      }
+    } catch(e){}
+  }
+  
+  async function loadPapelera() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getPapelera`).then(r=>r.json());
+      if(res.status==='success') {
+        document.getElementById('papeleraBody').innerHTML = res.data.map(p=>`<tr><td>${p.tipo}</td><td>JSON Data</td><td>${new Date(p.fecha_eliminado).toLocaleDateString()}</td></tr>`).join('');
+      }
+    } catch(e){}
+  }
+
+  async function loadResponsables() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getResponsables`).then(r=>r.json());
+      if(res.status==='success') {
+        document.getElementById('responsablesBody').innerHTML = res.data.map(r=>`<tr><td>${r.email}</td><td>${r.reportes}</td></tr>`).join('');
+      }
+    } catch(e){}
+  }
+
+  async function agregarCategoria() {
+    const n = document.getElementById('c_nombre').value;
+    if(!n) return;
+    showSpinner();
+    await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'agregarCategoria', nombre:n})});
+    await loadInitialData();
+  }
+</script>
+</body>
+</html>
