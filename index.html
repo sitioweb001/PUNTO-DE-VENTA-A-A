@@ -66,8 +66,8 @@
     .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.2;}
     .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; }
 
-    .carrito-panel { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; height: 100%; min-height: 600px;}
-    .carrito-items { flex: 1; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; min-height: 150px;}
+    .carrito-panel { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 600px;}
+    .carrito-items { max-height: 320px; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; min-height: 150px;}
     .carrito-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bg-body); }
     .carrito-qty { display: flex; align-items: center; gap: 5px; }
     .carrito-qty button { width: 35px; height: 35px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-body); cursor: pointer; font-size: 1.2rem; font-weight: bold;}
@@ -76,7 +76,7 @@
     /* Total a Pagar Sombreado Verde */
     .total-pagar-container { display:flex; justify-content:space-between; align-items: center; font-size:1.4rem; font-weight:900; margin-bottom: 15px; background: rgba(40, 167, 69, 0.12); border: 2px solid var(--success-color); color: var(--success-color); padding: 15px; border-radius: var(--radius); }
 
-    .data-table-container { overflow-x: auto; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 1rem; flex: 1;}
+    .data-table-container { overflow-x: auto; overflow-y: auto; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 1rem; flex: 1; min-height: 0; }
     .data-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
     .data-table th, .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
     .data-table th { background: var(--primary-dark); font-size: 0.85rem; text-transform: uppercase; color: white; position: sticky; top: 0; z-index: 10;}
@@ -169,9 +169,9 @@
           <div class="form-group"><label>Cliente Paga con ($):</label><input type="number" id="v_pago_con" class="input-calculo" placeholder="0.00" oninput="calcularCambio()"></div>
           <div class="form-group"><label style="color:var(--danger-color);">Cambio / Vuelto:</label><input type="text" id="v_cambio" class="input-calculo" readonly value="$0.00" style="color:var(--danger-color); background: #fdf2f2 !important;"></div>
           
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn primary-btn" style="flex: 1; height: 55px; font-size: 1.1rem; min-width: 140px;" onclick="finalizarVenta(false)"><i class="fas fa-check-circle"></i> Registrar Cobro Exitoso</button>
-            <button class="btn warning-btn" style="flex: 1; height: 55px; font-size: 1.1rem; min-width: 140px;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn primary-btn" style="width: 100%; height: 55px; font-size: 1.05rem; white-space: nowrap;" onclick="finalizarVenta(false)"><i class="fas fa-check-circle"></i> Registrar Cobro Exitoso</button>
+            <button class="btn warning-btn" style="width: 100%; height: 50px; font-size: 1rem; white-space: nowrap;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
           </div>
         </div>
       </div>
@@ -242,11 +242,8 @@
         <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="p_precio_venta" required step="0.01"></div>
         <div class="form-group"><label>Stock Inicial:</label><input type="number" id="p_stock" required min="0"></div>
         <div class="form-group" style="grid-column: 1/-1;">
-          <label>Imagen del Producto:</label>
-          <input type="file" id="p_imagen_file" accept="image/*" style="padding: 10px;">
-          <input type="hidden" id="p_imagen_base64">
-          <input type="hidden" id="p_imagen_nombre">
-          <input type="hidden" id="p_imagen_mime">
+          <label>Imagen del Producto (URL):</label>
+          <input type="text" id="p_imagen_url" placeholder="https://ejemplo.com/imagen.jpg" oninput="previsualizarImagenUrl('p_imagen_url','p_imagen_preview')">
           <div id="p_imagen_preview" style="margin-top: 10px; max-height: 150px; overflow: hidden; border-radius: 8px;"></div>
         </div>
         <div style="grid-column: 1/-1;"><button type="button" class="btn primary-btn" style="width: 100%; height: 50px; font-size: 1.1rem;" onclick="guardarProducto()"><i class="fas fa-save"></i> Guardar Producto</button></div>
@@ -351,6 +348,11 @@
       <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="e_precio" step="0.01"></div>
       <div class="form-group"><label>Stock:</label><input type="number" id="e_stock"></div>
     </div>
+    <div class="form-group">
+      <label>Imagen del Producto (URL):</label>
+      <input type="text" id="e_imagen_url" placeholder="https://ejemplo.com/imagen.jpg" oninput="previsualizarImagenUrl('e_imagen_url','e_imagen_preview')">
+      <div id="e_imagen_preview" style="margin-top: 10px; max-height: 150px; overflow: hidden; border-radius: 8px;"></div>
+    </div>
     <input type="hidden" id="e_id">
     <button class="btn primary-btn" style="width:100%; margin-top:10px; height: 50px;" onclick="guardarEdicionProducto()"><i class="fas fa-save"></i> Guardar Cambios</button>
   </div>
@@ -371,6 +373,10 @@
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="mensual" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 📊 Resumen mensual (día 1 de cada mes)</label>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="anual" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 📅 Resumen anual (1 de enero)</label>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="ventas_grandes" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 💰 Aviso inmediato de ventas grandes</label>
+        <div class="form-group" style="margin:0 0 0 28px;">
+          <label style="font-size:0.82rem; font-weight:500;">Umbral ($) — avisar cuando una venta sea igual o mayor a:</label>
+          <input type="number" id="r_umbral" min="0" step="0.01" placeholder="100.00" style="height:40px;">
+        </div>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="stock_bajo" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> ⚠️ Alerta diaria de stock bajo</label>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="backup_json" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 📅📊 Copia de seguridad JSON (diaria)</label>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="backup_csv" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 📅📊 Copia de seguridad CSV (diaria)</label>
@@ -383,6 +389,37 @@
 
     <input type="hidden" id="r_id">
     <button class="btn primary-btn" style="width:100%; margin-top:15px; height: 50px; font-size: 1.1rem;" onclick="guardarResponsable()"><i class="fas fa-save"></i> Guardar Responsable</button>
+  </div>
+</div>
+
+<!-- Modal Detalle de Venta -->
+<div id="modalDetalleVenta" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalDetalleVenta')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-receipt"></i> Detalle de Venta</h3>
+    <div id="detalleVentaBody"></div>
+  </div>
+</div>
+
+<!-- Modal Probar Envío de Correo -->
+<div id="modalPruebaEnvio" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalPruebaEnvio')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-paper-plane"></i> Probar Envío de Correo</h3>
+    <p class="text-muted" style="margin-bottom:1rem;">Se enviará un correo de prueba a <b id="prueba_email_destino"></b> con el reporte que elijas, sin esperar la fecha programada.</p>
+    <div class="form-group">
+      <label>¿Qué reporte quieres probar?</label>
+      <select id="prueba_tipo">
+        <option value="mensual">📊 Resumen mensual</option>
+        <option value="anual">📅 Resumen anual</option>
+        <option value="ventas_grandes">💰 Aviso de venta grande</option>
+        <option value="stock_bajo">⚠️ Alerta de stock bajo</option>
+        <option value="backup_json">📅 Copia de seguridad JSON</option>
+        <option value="backup_csv">📊 Copia de seguridad CSV</option>
+      </select>
+    </div>
+    <input type="hidden" id="prueba_resp_id">
+    <button class="btn primary-btn" style="width:100%; height:50px; margin-top:10px;" onclick="enviarPruebaResponsable()"><i class="fas fa-paper-plane"></i> Enviar Prueba</button>
   </div>
 </div>
 
@@ -485,21 +522,16 @@
     });
 
     // Imagen producto previa
-    document.getElementById('p_imagen_file').addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      document.getElementById('p_imagen_nombre').value = file.name;
-      document.getElementById('p_imagen_mime').value = file.type;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        document.getElementById('p_imagen_base64').value = ev.target.result.split(',')[1];
-        document.getElementById('p_imagen_preview').innerHTML = `<img src="${ev.target.result}" style="max-width:100%; height:auto;">`;
-      };
-      reader.readAsDataURL(file);
-    });
+    // (el campo de imagen ahora es una URL directa; ver previsualizarImagenUrl)
 
     loadInitialData(); // Auto inicio sin login
   });
+
+  function previsualizarImagenUrl(inputId, previewId) {
+    const url = document.getElementById(inputId).value.trim();
+    const preview = document.getElementById(previewId);
+    preview.innerHTML = url ? `<img src="${url}" style="max-width:100%; max-height:150px; border-radius:8px;" onerror="this.style.display='none';">` : '';
+  }
 
   async function loadInitialData() {
     showSpinner('Cargando datos...');
@@ -827,12 +859,14 @@
     document.getElementById('e_categoria').value = p['categoría'];
     document.getElementById('e_precio').value = p.precio_venta;
     document.getElementById('e_stock').value = p.stock;
+    document.getElementById('e_imagen_url').value = p.imagen_url || '';
+    previsualizarImagenUrl('e_imagen_url', 'e_imagen_preview');
     abrirModal('modalEditarProducto');
   }
 
   async function guardarEdicionProducto() {
     showSpinner('Actualizando...');
-    const payload = { action:'editarProducto', id: document.getElementById('e_id').value, nombre: document.getElementById('e_nombre').value, categoria: document.getElementById('e_categoria').value, precio_venta: document.getElementById('e_precio').value, stock: document.getElementById('e_stock').value };
+    const payload = { action:'editarProducto', id: document.getElementById('e_id').value, nombre: document.getElementById('e_nombre').value, categoria: document.getElementById('e_categoria').value, precio_venta: document.getElementById('e_precio').value, stock: document.getElementById('e_stock').value, imagen_url: document.getElementById('e_imagen_url').value.trim() };
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
       if(res.status==='success') { showToast('Producto actualizado'); cerrarModal('modalEditarProducto'); loadInventario(); }
@@ -856,17 +890,10 @@
     const n = document.getElementById('p_nombre').value; const c = document.getElementById('p_categoria').value; const pv = document.getElementById('p_precio_venta').value; const st = document.getElementById('p_stock').value;
     if(!n || !c || !pv || !st) return showToast('Completa los campos','error');
     showSpinner('Guardando producto...');
-    const payload = { action:'agregarProducto', nombre:n, categoria:c, precio_venta:pv, stock:st };
-    const base64 = document.getElementById('p_imagen_base64').value;
-    if (base64) {
-      try {
-        const imgRes = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({ action:'subirImagenProducto', base64: base64, mimeType: document.getElementById('p_imagen_mime').value, filename: document.getElementById('p_imagen_nombre').value })}).then(r=>r.json());
-        if(imgRes.status==='success') payload.imagen_url = imgRes.url;
-      } catch(e) {}
-    }
+    const payload = { action:'agregarProducto', nombre:n, categoria:c, precio_venta:pv, stock:st, imagen_url: document.getElementById('p_imagen_url').value.trim() };
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
-      if(res.status==='success') { showToast('Producto guardado'); document.getElementById('productoForm').reset(); document.getElementById('p_imagen_preview').innerHTML=''; document.getElementById('p_imagen_base64').value=''; loadInventario(); }
+      if(res.status==='success') { showToast('Producto guardado'); document.getElementById('productoForm').reset(); document.getElementById('p_imagen_preview').innerHTML=''; loadInventario(); }
     } catch(e){ showToast('Error','error'); }
     hideSpinner();
   }
@@ -932,11 +959,41 @@
     let sum = 0;
     const html = filtrados.map(v => {
       const tot = parseFloat(v.total)||0; sum+=tot;
-      return `<tr><td>${new Date(v.fecha).toLocaleDateString()} ${new Date(v.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><b>${v.cliente_nombre||'N/A'}</b></td><td>$${parseFloat(v.subtotal||0).toFixed(2)}</td><td><b style="color:var(--success-color); font-size:1.1rem;">$${tot.toFixed(2)}</b></td></tr>`;
+      return `<tr onclick="verDetalleVenta('${v.id}')" style="cursor:pointer;"><td>${new Date(v.fecha).toLocaleDateString()} ${new Date(v.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><b>${v.cliente_nombre||'N/A'}</b></td><td>$${parseFloat(v.subtotal||0).toFixed(2)}</td><td><b style="color:var(--success-color); font-size:1.1rem;">$${tot.toFixed(2)}</b></td></tr>`;
     }).join('');
 
     document.getElementById('reportesBody').innerHTML = html || `<tr><td colspan="4" class="text-center text-muted">No hay ventas en este período.</td></tr>`;
     document.getElementById('reporte_total_monto').textContent = `$${sum.toFixed(2)}`;
+  }
+
+  // --- DETALLE DE VENTA (clic en una fila de Reportes) ---
+  function verDetalleVenta(ventaId) {
+    const v = reportesGlobal.find(x => String(x.id) === String(ventaId));
+    if (!v) return;
+    const fecha = new Date(v.fecha);
+    const items = v.items || [];
+    const filasItems = items.length
+      ? items.map(it => `<tr><td style="padding:6px 4px;">${it.producto_nombre}</td><td style="padding:6px 4px; text-align:center;">${it.cantidad}</td><td style="padding:6px 4px; text-align:right;">$${parseFloat(it.precio_unitario||0).toFixed(2)}</td><td style="padding:6px 4px; text-align:right; font-weight:bold;">$${parseFloat(it.subtotal_linea||0).toFixed(2)}</td></tr>`).join('')
+      : `<tr><td colspan="4" style="padding:6px 4px;" class="text-muted">Sin detalle de productos.</td></tr>`;
+
+    document.getElementById('detalleVentaBody').innerHTML = `
+      <div style="margin-bottom:12px; font-size:0.95rem; line-height:1.7;">
+        <div><b>Cliente:</b> ${v.cliente_nombre || 'N/A'}</div>
+        <div><b>Fecha:</b> ${fecha.toLocaleDateString()}</div>
+        <div><b>Hora:</b> ${fecha.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+        <div><b>Estado:</b> ${v.estado || 'completada'}</div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin-bottom:12px;">
+        <thead><tr style="border-bottom:2px solid var(--border-color);"><th style="text-align:left; padding:6px 4px;">Producto</th><th style="padding:6px 4px;">Cant.</th><th style="text-align:right; padding:6px 4px;">P. Unit.</th><th style="text-align:right; padding:6px 4px;">Subtotal</th></tr></thead>
+        <tbody>${filasItems}</tbody>
+      </table>
+      <div style="border-top:2px solid var(--border-color); padding-top:10px; font-size:0.95rem; line-height:1.8;">
+        <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><b>$${parseFloat(v.subtotal||0).toFixed(2)}</b></div>
+        <div style="display:flex; justify-content:space-between; font-size:1.15rem;"><span>Total:</span><b style="color:var(--success-color);">$${parseFloat(v.total||0).toFixed(2)}</b></div>
+        <div style="display:flex; justify-content:space-between;"><span>Pagó con:</span><b>$${parseFloat(v.pago_con||0).toFixed(2)}</b></div>
+        <div style="display:flex; justify-content:space-between;"><span>Cambio / Vuelto:</span><b style="color:var(--danger-color);">$${parseFloat(v.cambio||0).toFixed(2)}</b></div>
+      </div>`;
+    abrirModal('modalDetalleVenta');
   }
 
   // --- RESPONSABLES ---
@@ -945,7 +1002,7 @@
       const res = await fetch(`${SCRIPT_URL}?action=getResponsables`).then(r=>r.json());
       if(res.status==='success') {
         responsablesGlobal = res.data;
-        document.getElementById('responsablesBody').innerHTML = responsablesGlobal.map(r=>`<tr><td><b>${r.nombre||'—'}</b></td><td>${r.email}</td><td style="font-size:0.85rem">${(r.reportes||'').replace(/,/g, ', ')}</td><td>${(r.activo===true||r.activo==='true') ? '<span style="color:var(--success-color);font-weight:bold;">Activo</span>' : '<span style="color:var(--text-muted);">Inactivo</span>'}</td><td style="white-space:nowrap;"><button class="btn-icon edit" onclick="abrirModalResponsable('${r.id}')"><i class="fas fa-edit"></i></button> <button class="btn-icon delete" onclick="eliminarResponsable('${r.id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('') || `<tr><td colspan="5" class="text-center">Sin responsables.</td></tr>`;
+        document.getElementById('responsablesBody').innerHTML = responsablesGlobal.map(r=>`<tr><td><b>${r.nombre||'—'}</b></td><td>${r.email}</td><td style="font-size:0.85rem">${(r.reportes||'').replace(/,/g, ', ')}</td><td>${(r.activo===true||r.activo==='true') ? '<span style="color:var(--success-color);font-weight:bold;">Activo</span>' : '<span style="color:var(--text-muted);">Inactivo</span>'}</td><td style="white-space:nowrap;"><button class="btn-icon" style="color:var(--success-color); background:#e6f7ec;" title="Ejecutar prueba de envío" onclick="abrirModalPruebaEnvio('${r.id}', '${(r.email||'').replace(/'/g,"\\'")}')"><i class="fas fa-paper-plane"></i></button> <button class="btn-icon edit" onclick="abrirModalResponsable('${r.id}')"><i class="fas fa-edit"></i></button> <button class="btn-icon delete" onclick="eliminarResponsable('${r.id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('') || `<tr><td colspan="5" class="text-center">Sin responsables.</td></tr>`;
       }
     } catch(e){}
   }
@@ -955,6 +1012,7 @@
     document.getElementById('r_id').value = r ? r.id : '';
     document.getElementById('r_nombre').value = r ? (r.nombre||'') : '';
     document.getElementById('r_email').value = r ? (r.email||'') : '';
+    document.getElementById('r_umbral').value = r && r.umbral_venta_grande ? r.umbral_venta_grande : 100;
     
     // Marcar checkboxes correspondientes
     const reportes = r ? (r.reportes||'').split(',') : [];
@@ -974,6 +1032,7 @@
       nombre: document.getElementById('r_nombre').value,
       email: document.getElementById('r_email').value,
       reportes: reportesSeleccionados,
+      umbral_venta_grande: document.getElementById('r_umbral').value || 100,
       activo: document.getElementById('r_activo').checked
     };
     if(!payload.email) return showToast('Ingresa un correo electrónico válido.', 'error');
@@ -990,6 +1049,24 @@
     showSpinner();
     await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'eliminarResponsable', id:id})});
     loadResponsables(); hideSpinner();
+  }
+
+  function abrirModalPruebaEnvio(id, email) {
+    document.getElementById('prueba_resp_id').value = id;
+    document.getElementById('prueba_email_destino').textContent = email;
+    abrirModal('modalPruebaEnvio');
+  }
+
+  async function enviarPruebaResponsable() {
+    const id = document.getElementById('prueba_resp_id').value;
+    const tipo = document.getElementById('prueba_tipo').value;
+    showSpinner('Enviando correo de prueba...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'probarEnvioResponsable', id, tipo})}).then(r=>r.json());
+      if(res.status==='success') { showToast(res.message); cerrarModal('modalPruebaEnvio'); }
+      else showToast(res.message || 'Error al enviar el correo de prueba.', 'error');
+    } catch(e) { showToast('Error de red', 'error'); }
+    hideSpinner();
   }
 
   // --- PAPELERA ---
