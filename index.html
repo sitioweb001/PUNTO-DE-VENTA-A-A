@@ -79,16 +79,6 @@
 <div id="toastContainer" class="toast-container"></div>
 <div id="spinnerOverlay" class="spinner-overlay hidden"><i class="fas fa-circle-notch fa-spin fa-3x" style="margin-bottom:1rem;"></i> <span id="spinnerLabel">Cargando...</span></div>
 
-<!-- LOGIN (Simplificado) -->
-<div id="loginScreen" style="position:fixed; inset:0; z-index:10000; background:var(--primary-dark); display:flex; align-items:center; justify-content:center;">
-  <div style="background:white; padding:3rem; border-radius:var(--radius-lg); width:100%; max-width:400px; text-align:center;">
-    <h2 style="color:var(--text-main); justify-content:center;">ERP POS LITE</h2>
-    <div class="form-group"><input type="text" id="login_usuario" placeholder="Usuario (admin)"></div>
-    <div class="form-group"><input type="password" id="login_password" placeholder="Contraseña (admin123)"></div>
-    <button class="btn primary-btn" style="width:100%" onclick="handleLogin()">Ingresar</button>
-  </div>
-</div>
-
 <aside class="sidebar" id="sidebar">
   <div class="logo"><i class="fas fa-store"></i> MI NEGOCIO</div>
   <nav class="sidebar-nav">
@@ -291,16 +281,10 @@
       };
       reader.readAsDataURL(file);
     });
-  });
 
-  async function handleLogin() {
-    const u = document.getElementById('login_usuario').value;
-    const p = document.getElementById('login_password').value;
-    if(u==='admin'&&p==='admin123') {
-      document.getElementById('loginScreen').style.display='none';
-      await loadInitialData();
-    } else { showToast('Credenciales incorrectas','error'); }
-  }
+    // Iniciar el sistema directamente sin login
+    loadInitialData();
+  });
 
   async function loadInitialData() {
     showSpinner('Cargando datos...');
