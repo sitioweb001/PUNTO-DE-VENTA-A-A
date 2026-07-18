@@ -33,7 +33,7 @@
 
     /* CONTENIDO PRINCIPAL */
     .main-content { flex: 1; padding: 1.5rem; padding-top: 5rem; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-    .content-section { display: none; flex: 1; display: flex; flex-direction: column; height: 100%;}
+    .content-section { display: none; flex: 1; flex-direction: column; height: 100%;}
     .content-section.active { display: flex; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -54,7 +54,7 @@
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
 
     /* POS GRID LAYOUT OPTIMIZADO */
-    .pos-layout { display: grid; grid-template-columns: 1fr 380px; gap: 1.5rem; flex: 1; min-height: 0;}
+    .pos-layout { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; flex: 1; min-height: 0;}
     @media (max-width: 950px) { .pos-layout { grid-template-columns: 1fr; overflow-y: auto;} }
     
     .productos-grid-container { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 450px;}
@@ -112,6 +112,7 @@
   <nav class="sidebar-nav">
     <a href="#" data-section="ventas" class="active"><i class="fas fa-cash-register"></i> Punto de Venta</a>
     <a href="#" data-section="cambios"><i class="fas fa-hand-holding-usd"></i> Cambios Pend.</a>
+    <a href="#" data-section="compras"><i class="fas fa-truck-loading"></i> Compras / Gastos</a>
     <a href="#" data-section="inventario"><i class="fas fa-boxes"></i> Inventario</a>
     <a href="#" data-section="productos"><i class="fas fa-plus-circle"></i> Reg. Producto</a>
     <a href="#" data-section="categorias"><i class="fas fa-tags"></i> Categorías</a>
@@ -127,6 +128,16 @@
   <!-- PUNTO DE VENTA -->
   <section id="ventas" class="content-section active">
     <h2><i class="fas fa-cash-register"></i> Punto de Venta</h2>
+
+    <!-- BANNERS MODO OFFLINE -->
+    <div id="offlineBanner" class="hidden" style="background:var(--danger-color); color:white; padding:12px; border-radius:8px; margin-bottom:15px; font-weight:bold; display:flex; align-items:center; gap:10px;">
+      <i class="fas fa-wifi-slash"></i> Estás sin conexión. Las ventas se guardarán localmente en el dispositivo.
+    </div>
+    <div id="syncBanner" class="hidden" style="background:var(--warning-color); color:black; padding:12px; border-radius:8px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <span style="font-weight:bold;"><i class="fas fa-cloud-upload-alt"></i> Tienes <b id="syncCount">0</b> ventas pendientes de subir a la nube.</span> 
+      <button class="btn" style="background:black; color:white;" onclick="sincronizarVentas()"><i class="fas fa-sync"></i> Sincronizar Ahora</button>
+    </div>
+
     <div class="pos-layout">
       <!-- Izquierda -->
       <div class="productos-grid-container">
@@ -139,12 +150,18 @@
       </div>
       <!-- Derecha -->
       <div class="carrito-panel">
-        <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; flex-shrink: 0;"><i class="fas fa-shopping-cart"></i> Carrito</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; flex-shrink: 0;">
+          <h3 style="margin:0;"><i class="fas fa-shopping-cart"></i> Carrito</h3>
+          <button class="btn danger-btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="vaciarCarrito()"><i class="fas fa-trash-alt"></i> Vaciar</button>
+        </div>
+
         <div class="form-group" style="flex-shrink: 0;">
           <label>Cliente <span style="color:red; font-size:1.1rem;">*</span> (Obligatorio):</label>
           <input type="text" id="v_cliente" placeholder="Nombre del cliente" required>
         </div>
+        
         <div class="carrito-items" id="carritoItems"><p class="text-muted text-center" style="margin-top:2rem;">Carrito vacío</p></div>
+        
         <div style="flex-shrink: 0;">
           <div class="total-pagar-container">
             <span>Total a pagar:</span><span id="c_total" data-val="0">$0.00</span>
@@ -172,6 +189,37 @@
     </div>
   </section>
 
+  <!-- COMPRAS / GASTOS / REABASTECIMIENTO -->
+  <section id="compras" class="content-section">
+    <h2><i class="fas fa-truck-loading"></i> Registro de Compras (Reabastecimiento)</h2>
+    <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color); margin-bottom: 1.5rem;">
+      <form id="compraForm" class="form-grid" style="align-items: end;">
+        <div class="form-group">
+          <label>Producto a reabastecer:</label>
+          <select id="co_producto" required></select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad adquirida:</label>
+          <input type="number" id="co_cantidad" required min="1">
+        </div>
+        <div class="form-group">
+          <label>Costo Total del Gasto ($):</label>
+          <input type="number" id="co_costo" required step="0.01">
+        </div>
+        <button type="button" class="btn primary-btn" style="height:50px" onclick="guardarCompra()">
+          <i class="fas fa-save"></i> Registrar Compra / Gasto
+        </button>
+      </form>
+    </div>
+
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad Sumada</th><th>Costo Total (Gasto)</th></tr></thead>
+        <tbody id="comprasBody"><tr><td colspan="4" class="text-center text-muted">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- INVENTARIO -->
   <section id="inventario" class="content-section">
     <h2><i class="fas fa-boxes"></i> Inventario y Stock</h2>
@@ -195,7 +243,6 @@
         <div class="form-group"><label>Stock Inicial:</label><input type="number" id="p_stock" required min="0"></div>
         <div class="form-group" style="grid-column: 1/-1;">
           <label>Imagen del Producto:</label>
-          <!-- Selector de Archivo. Automáticamente se convertirá y subirá a Drive al guardar -->
           <input type="file" id="p_imagen_file" accept="image/*" style="padding: 10px;">
           <input type="hidden" id="p_imagen_base64">
           <input type="hidden" id="p_imagen_nombre">
@@ -271,7 +318,20 @@
   <!-- AJUSTES -->
   <section id="ajustes" class="content-section">
     <h2><i class="fas fa-cog"></i> Ajustes del Sistema</h2>
+    
+    <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color); margin-bottom:1rem;">
+      <h3 style="margin-bottom:10px;"><i class="fas fa-wifi"></i> Modo Sin Conexión</h3>
+      <p class="text-muted" style="margin-bottom: 1rem;">Si activas esta opción, el sistema utilizará tu última memoria guardada para permitirte registrar ventas cuando se caiga el internet. Las ventas quedarán en cola y se subirán cuando regreses.</p>
+      <div class="form-group">
+        <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-weight:bold; font-size:1.05rem;">
+          <input type="checkbox" id="chk_offline" style="width:22px; height:22px; margin:0;" onchange="toggleOfflineConfig()"> 
+          Habilitar Modo Sin Conexión
+        </label>
+      </div>
+    </div>
+
     <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color);">
+      <h3 style="margin-bottom:10px;"><i class="fas fa-database"></i> Base de Datos</h3>
       <p class="text-muted" style="margin-bottom: 1rem;">La inicialización creará las hojas de cálculo necesarias en tu Google Sheet si no existen. Útil para la primera configuración.</p>
       <button class="btn primary-btn" onclick="iniciarBD()"><i class="fas fa-database"></i> Inicializar Base de Datos</button>
     </div>
@@ -327,7 +387,7 @@
 </div>
 
 <script>
-  // URL DEL SCRIPT (Actualizado)
+  // URL DEL SCRIPT
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdv3CQlgdo_UX1cGbAeFm6CWQxGbqraUBSH_quHKW0XQ5oSJ-drQrbUNtM60VNv6xZ/exec";
 
   let inventarioGlobal = [];
@@ -335,6 +395,9 @@
   let categoriasGlobal = [];
   let reportesGlobal = [];
   let responsablesGlobal = [];
+  
+  // MODO OFFLINE VARS
+  let isOfflineModeEnabled = localStorage.getItem('pos_offline_enabled') === 'true';
 
   // UTILIDADES
   function showSpinner(msg='Cargando...') { document.getElementById('spinnerLabel').textContent=msg; document.getElementById('spinnerOverlay').classList.remove('hidden'); }
@@ -349,8 +412,50 @@
   function cerrarModal(id) { document.getElementById(id).classList.add('hidden'); }
   function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }
 
+  // CONFIG OFFLINE
+  function toggleOfflineConfig() {
+    isOfflineModeEnabled = document.getElementById('chk_offline').checked;
+    localStorage.setItem('pos_offline_enabled', isOfflineModeEnabled);
+    showToast('Configuración offline actualizada', 'success');
+    updateNetworkUI();
+  }
+
+  window.addEventListener('online', updateNetworkUI);
+  window.addEventListener('offline', updateNetworkUI);
+
+  function updateNetworkUI() {
+    if(!isOfflineModeEnabled) {
+      document.getElementById('offlineBanner').classList.add('hidden');
+      document.getElementById('syncBanner').classList.add('hidden');
+      return;
+    }
+    const offlineBanner = document.getElementById('offlineBanner');
+    if(!navigator.onLine) {
+      offlineBanner.classList.remove('hidden');
+    } else {
+      offlineBanner.classList.add('hidden');
+    }
+    renderSyncBanner();
+  }
+
+  function renderSyncBanner() {
+    if(!isOfflineModeEnabled) return;
+    const queue = JSON.parse(localStorage.getItem('pos_ventas_queue') || '[]');
+    const syncBanner = document.getElementById('syncBanner');
+    if(queue.length > 0) {
+      document.getElementById('syncCount').textContent = queue.length;
+      syncBanner.classList.remove('hidden');
+    } else {
+      syncBanner.classList.add('hidden');
+    }
+  }
+
   // NAVEGACIÓN Y MENÚ MÓVIL GLOBAL
   document.addEventListener('DOMContentLoaded', () => {
+    // Config offline
+    document.getElementById('chk_offline').checked = isOfflineModeEnabled;
+    updateNetworkUI();
+
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     document.getElementById('mobileToggle').addEventListener('click', () => {
@@ -372,6 +477,7 @@
 
         if(id==='inventario'||id==='ventas') loadInventario();
         if(id==='cambios') loadCambios();
+        if(id==='compras') loadCompras();
         if(id==='reportes') loadReportes();
         if(id==='papelera') loadPapelera();
         if(id==='responsables') loadResponsables();
@@ -405,7 +511,9 @@
         renderCategorias();
       }
       await loadInventario();
-    } catch(e) { showToast('Error al cargar datos','error'); }
+    } catch(e) { 
+      // Si falla, no cortamos si está modo offline
+    }
     hideSpinner();
   }
 
@@ -415,15 +523,35 @@
     document.getElementById('e_categoria').innerHTML = options;
   }
 
+  function actualizarSelectProductosCompras() {
+    const options = '<option value="">Seleccione un producto...</option>' + inventarioGlobal.map(p=>`<option value="${p.id}">${p.nombre} (Stock actual: ${p.stock})</option>`).join('');
+    document.getElementById('co_producto').innerHTML = options;
+  }
+
   async function loadInventario() {
     try {
       const res = await fetch(`${SCRIPT_URL}?action=getInventario`).then(r=>r.json());
       if(res.status==='success') {
         inventarioGlobal = res.data;
+        if(isOfflineModeEnabled) {
+          localStorage.setItem('pos_inventario_cache', JSON.stringify(inventarioGlobal)); // Cachear para offline
+        }
         renderGridPOS();
         renderInventario();
+        actualizarSelectProductosCompras();
       }
-    } catch(e){}
+    } catch(e){
+      if(isOfflineModeEnabled) {
+        const cache = localStorage.getItem('pos_inventario_cache');
+        if(cache) {
+          inventarioGlobal = JSON.parse(cache);
+          renderGridPOS();
+          renderInventario();
+          actualizarSelectProductosCompras();
+          showToast('Cargado desde caché local (Sin conexión)', 'warning');
+        }
+      }
+    }
   }
 
   // --- PUNTO DE VENTA ---
@@ -458,6 +586,20 @@
     showToast(`Agregado: ${p.nombre}`);
   }
 
+  function vaciarCarrito() {
+    if(carrito.length === 0) return;
+    if(!confirm('¿Estás seguro de vaciar todo el carrito?')) return;
+    carrito = [];
+    renderCarrito();
+    document.getElementById('v_pago_con').value = '';
+    calcularCambio();
+  }
+
+  function eliminarDelCarrito(idx) {
+    carrito.splice(idx, 1);
+    renderCarrito();
+  }
+
   function renderCarrito() {
     const cont = document.getElementById('carritoItems');
     if(!carrito.length) { 
@@ -468,7 +610,19 @@
     let total = 0;
     cont.innerHTML = carrito.map((it, idx) => {
       total += (it.cantidad * it.precio_unitario);
-      return `<div class="carrito-item"><div style="flex:1; font-size:0.95rem; font-weight:600; padding-right:10px;">${it.nombre}</div><div class="carrito-qty"><button onclick="cambiarQty(${idx}, -1)">-</button><span style="width:25px; text-align:center; font-weight:bold;">${it.cantidad}</span><button onclick="cambiarQty(${idx}, 1)">+</button></div><div style="width:75px; text-align:right; font-weight:bold; font-size:1.05rem;">$${(it.cantidad*it.precio_unitario).toFixed(2)}</div></div>`;
+      return `
+      <div class="carrito-item">
+        <div style="flex:1; font-size:0.95rem; font-weight:600; padding-right:10px;">${it.nombre}</div>
+        <div class="carrito-qty">
+          <button onclick="cambiarQty(${idx}, -1)">-</button>
+          <span style="width:25px; text-align:center; font-weight:bold;">${it.cantidad}</span>
+          <button onclick="cambiarQty(${idx}, 1)">+</button>
+        </div>
+        <div style="text-align:right; display:flex; align-items:center; justify-content:flex-end; gap:8px;">
+          <span style="font-weight:bold; font-size:1.05rem;">$${(it.cantidad*it.precio_unitario).toFixed(2)}</span>
+          <button class="btn-icon delete" style="padding:5px; font-size:0.9rem;" onclick="eliminarDelCarrito(${idx})" title="Eliminar"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>`;
     }).join('');
     document.getElementById('c_total').textContent=`$${total.toFixed(2)}`;
     document.getElementById('c_total').dataset.val=total;
@@ -507,6 +661,13 @@
 
     showSpinner('Registrando venta...');
     const payload = { action: 'registrarVenta', cliente_nombre: clienteInput.value.trim(), pago_con: pago, cambio: cambio, pendiente: quedaPendiente, items: carrito, usuario: 'admin' };
+    
+    // GUARDAR OFFLINE SI ESTA ACTIVADO Y NO HAY RED
+    if(isOfflineModeEnabled && !navigator.onLine) {
+      guardarVentaLocal(payload, quedaPendiente);
+      return;
+    }
+
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
       if(res.status==='success') {
@@ -517,9 +678,66 @@
         document.getElementById('v_cambio').value = '$0.00'; // Reset cambio explícito
         await loadInventario();
       } else showToast(res.message, 'error');
-    } catch(e) { showToast('Error de red', 'error'); }
+    } catch(e) { 
+      if(isOfflineModeEnabled) {
+        guardarVentaLocal(payload, quedaPendiente); // Guardar si falla la conexión
+      } else {
+        showToast('Error de red', 'error'); 
+      }
+    }
     hideSpinner();
   }
+
+  // FUNCIÓN PARA GUARDAR EN COLA LOCAL
+  function guardarVentaLocal(payload, quedaPendiente) {
+    const queue = JSON.parse(localStorage.getItem('pos_ventas_queue') || '[]');
+    queue.push(payload);
+    localStorage.setItem('pos_ventas_queue', JSON.stringify(queue));
+    
+    // Descontar del inventario en cache
+    carrito.forEach(it => {
+      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
+      if(prod) prod.stock = (parseInt(prod.stock) || 0) - it.cantidad;
+    });
+    localStorage.setItem('pos_inventario_cache', JSON.stringify(inventarioGlobal));
+    renderGridPOS();
+
+    showToast(quedaPendiente ? 'Guardado localmente. Cambio PENDIENTE.' : 'Venta guardada localmente en dispositivo.', 'warning');
+    carrito=[]; renderCarrito(); 
+    document.getElementById('v_cliente').value=''; 
+    document.getElementById('v_pago_con').value='';
+    document.getElementById('v_cambio').value = '$0.00';
+    renderSyncBanner();
+    hideSpinner();
+  }
+
+  // SINCRONIZAR VENTAS EN COLA
+  async function sincronizarVentas() {
+    const queue = JSON.parse(localStorage.getItem('pos_ventas_queue') || '[]');
+    if(!queue.length) return;
+    if(!navigator.onLine) return showToast('Aún no tienes conexión a internet', 'error');
+    
+    showSpinner('Subiendo a la nube...');
+    let restantes = [];
+    for(let i=0; i<queue.length; i++) {
+      try {
+        const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(queue[i])}).then(r=>r.json());
+        if(res.status !== 'success') restantes.push(queue[i]);
+      } catch(e) {
+        restantes.push(queue[i]);
+      }
+    }
+    localStorage.setItem('pos_ventas_queue', JSON.stringify(restantes));
+    renderSyncBanner();
+    hideSpinner();
+    if(restantes.length === 0) {
+      showToast('¡Todas las ventas sincronizadas correctamente!', 'success');
+      loadInventario(); 
+    } else {
+      showToast(`Quedaron ${restantes.length} ventas sin sincronizar (Error de red).`, 'warning');
+    }
+  }
+
 
   // --- CAMBIOS PENDIENTES ---
   async function loadCambios() {
@@ -536,11 +754,53 @@
   }
   async function marcarPagado(id) {
     if(!confirm('¿Confirmar que se entregó el cambio?')) return;
-    showSpinner();
+    showSpinner('Actualizando...');
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'marcarCambioPagado', id:id})}).then(r=>r.json());
       if(res.status==='success') { showToast('Cambio entregado.'); loadCambios(); }
     } catch(e) { showToast('Error','error'); }
+    hideSpinner();
+  }
+
+  // --- COMPRAS / REABASTECIMIENTO ---
+  async function loadCompras() {
+    const body = document.getElementById('comprasBody');
+    body.innerHTML = '<tr><td colspan="4" class="text-center">Cargando...</td></tr>';
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getCompras`).then(r=>r.json());
+      if(res.status==='success') {
+        const compras = res.data.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+        if(!compras.length) { body.innerHTML='<tr><td colspan="4" class="text-center">No hay compras registradas.</td></tr>'; return; }
+        body.innerHTML = compras.map(c => `<tr><td>${new Date(c.fecha).toLocaleDateString()}</td><td><b>${c.producto_nombre}</b></td><td style="color:var(--success-color); font-weight:bold;">+${c.cantidad}</td><td style="color:var(--danger-color); font-weight:bold;">$${parseFloat(c.costo_total||0).toFixed(2)}</td></tr>`).join('');
+      }
+    } catch(e) {}
+  }
+
+  async function guardarCompra() {
+    const pid = document.getElementById('co_producto').value;
+    const cant = document.getElementById('co_cantidad').value;
+    const costo = document.getElementById('co_costo').value;
+
+    if(!pid || !cant || !costo) return showToast('Completa todos los campos.', 'error');
+
+    showSpinner('Registrando compra...');
+    const payload = {
+      action: 'registrarCompra',
+      producto_id: pid,
+      cantidad: cant,
+      costo: costo,
+      usuario: 'admin'
+    };
+
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
+      if(res.status==='success') {
+        showToast('Compra registrada y stock actualizado.');
+        document.getElementById('compraForm').reset();
+        await loadInventario();
+        await loadCompras();
+      } else showToast(res.message, 'error');
+    } catch(e) { showToast('Error de red', 'error'); }
     hideSpinner();
   }
 
