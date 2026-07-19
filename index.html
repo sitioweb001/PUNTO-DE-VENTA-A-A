@@ -32,8 +32,8 @@
     .sidebar-overlay.active { display: block; }
 
     /* CONTENIDO PRINCIPAL */
-    .main-content { flex: 1; padding: 1.5rem; padding-top: 5rem; padding-bottom: 2.5rem; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-    .content-section { display: none; flex: 1; flex-direction: column; height: 100%;}
+    .main-content { flex: 1; padding: 1.5rem; padding-top: 5rem; padding-bottom: 2.5rem; width: 100vw; min-height: 100vh; display: flex; flex-direction: column; }
+    .content-section { display: none; flex: 1; flex-direction: column; }
     .content-section.active { display: flex; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -54,11 +54,13 @@
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
 
     /* POS GRID LAYOUT OPTIMIZADO */
-    .pos-layout { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; flex: 1; min-height: 0;}
-    @media (max-width: 950px) { .pos-layout { grid-template-columns: 1fr; overflow-y: auto;} }
+    .pos-layout { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; }
+    @media (max-width: 950px) {
+      .pos-layout { grid-template-columns: 1fr; }
+    }
     
     .productos-grid-container { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 450px; margin-bottom: 1.5rem;}
-    .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; margin-top: 0.5rem; overflow-y: auto; flex: 1; padding-right: 5px; align-content: start; }
+    .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; margin-top: 0.5rem; padding-right: 5px; align-content: start; }
     .producto-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; background: white; min-height: 195px; }
     .producto-card:active { transform: scale(0.95); }
     .producto-img { width: 100%; height: 110px; object-fit: cover; background: var(--bg-body); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2rem; flex-shrink: 0;}
@@ -78,7 +80,7 @@
     /* Total a Pagar Sombreado Verde */
     .total-pagar-container { display:flex; justify-content:space-between; align-items: center; font-size:1.4rem; font-weight:900; margin-bottom: 15px; background: rgba(40, 167, 69, 0.12); border: 2px solid var(--success-color); color: var(--success-color); padding: 15px; border-radius: var(--radius); }
 
-    .data-table-container { overflow-x: auto; overflow-y: auto; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 1rem; flex: 1; min-height: 0; }
+    .data-table-container { overflow-x: auto; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-top: 1rem; }
     .data-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
     .data-table th, .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
     .data-table th { background: var(--primary-dark); font-size: 0.85rem; text-transform: uppercase; color: white; position: sticky; top: 0; z-index: 10;}
@@ -109,7 +111,7 @@
     .resumen-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.25rem; flex-shrink: 0; }
     .resumen-tab-btn { padding: 10px 16px; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; font-weight: 600; font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px; }
     .resumen-tab-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-    .resumen-tab-content { display: none; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+    .resumen-tab-content { display: none; flex-direction: column; }
     .resumen-tab-content.active { display: flex; }
     .resumen-cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; flex-shrink: 0; }
     .mini-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.1rem; text-align: center; }
