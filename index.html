@@ -66,9 +66,11 @@
     .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.2;}
     .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; }
 
-    .carrito-panel { background: var(--bg-card); padding: 1.5rem 1.5rem 3rem 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 680px; margin-bottom: 1.5rem;}
+    .carrito-panel { background: var(--bg-card); padding: 1.5rem 1.5rem 5rem 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 500px; margin-bottom: 1.5rem;}
     .carrito-items { max-height: 320px; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; min-height: 150px;}
-    .carrito-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bg-body); }
+    .carrito-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bg-body); gap: 10px; }
+    .carrito-item-img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: var(--bg-body); flex-shrink: 0; }
+    .carrito-item-img-placeholder { width: 40px; height: 40px; border-radius: 6px; background: var(--bg-body); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 1rem; flex-shrink: 0; }
     .carrito-qty { display: flex; align-items: center; gap: 5px; }
     .carrito-qty button { width: 35px; height: 35px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-body); cursor: pointer; font-size: 1.2rem; font-weight: bold;}
     .input-calculo { font-size: 1.4rem !important; font-weight: bold; background: var(--bg-body); text-align: right; }
@@ -170,7 +172,7 @@
           <div class="form-group"><label>Cliente Paga con ($):</label><input type="number" id="v_pago_con" class="input-calculo" placeholder="0.00" oninput="calcularCambio()"></div>
           <div class="form-group"><label style="color:var(--danger-color);">Cambio / Vuelto:</label><input type="text" id="v_cambio" class="input-calculo" readonly value="$0.00" style="color:var(--danger-color); background: #fdf2f2 !important;"></div>
           
-          <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem;">
             <button class="btn primary-btn" style="width: 100%; height: 55px; font-size: 1.05rem; white-space: nowrap;" onclick="finalizarVenta(false)"><i class="fas fa-check-circle"></i> Registrar Cobro Exitoso</button>
             <button class="btn warning-btn" style="width: 100%; height: 50px; font-size: 1rem; white-space: nowrap;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
           </div>
@@ -638,7 +640,7 @@
     if(!p) return;
     const item = carrito.find(x => x.producto_id === id);
     if(item) item.cantidad++;
-    else carrito.push({ producto_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_venta) });
+    else carrito.push({ producto_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_venta), imagen_url: p.imagen_url || '' });
     renderCarrito();
     showToast(`Agregado: ${p.nombre}`);
   }
@@ -667,8 +669,10 @@
     let total = 0;
     cont.innerHTML = carrito.map((it, idx) => {
       total += (it.cantidad * it.precio_unitario);
+      const imgHtml = it.imagen_url ? `<img src="${it.imagen_url}" class="carrito-item-img">` : `<div class="carrito-item-img-placeholder"><i class="fas fa-box"></i></div>`;
       return `
       <div class="carrito-item">
+        ${imgHtml}
         <div style="flex:1; font-size:0.95rem; font-weight:600; padding-right:10px;">${it.nombre}</div>
         <div class="carrito-qty">
           <button onclick="cambiarQty(${idx}, -1)">-</button>
