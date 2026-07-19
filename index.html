@@ -99,6 +99,39 @@
 
     .summary-card { background: var(--primary-light); border: 1px solid var(--primary-color); padding: 1.5rem; border-radius: var(--radius-lg); text-align: center; margin-bottom: 1rem;}
     .summary-card h3 { color: var(--primary-color); font-size: 2rem; margin-top: 5px;}
+
+    /* Indicador de Margen de Ganancia */
+    .margen-display { display:flex; justify-content:space-between; align-items:center; background: rgba(40,167,69,0.12); border:2px solid var(--success-color); color: var(--success-color); padding: 14px 16px; border-radius: var(--radius); font-weight:700; gap: 10px; flex-wrap: wrap; }
+    .margen-display.negativo { background: rgba(220,53,69,0.12); border-color: var(--danger-color); color: var(--danger-color); }
+    .margen-display span { display:flex; align-items:center; gap:6px; }
+
+    /* RESUMENES / DASHBOARD */
+    .resumen-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.25rem; flex-shrink: 0; }
+    .resumen-tab-btn { padding: 10px 16px; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; font-weight: 600; font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px; }
+    .resumen-tab-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+    .resumen-tab-content { display: none; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+    .resumen-tab-content.active { display: flex; }
+    .resumen-cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; flex-shrink: 0; }
+    .mini-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.1rem; text-align: center; }
+    .mini-card .mini-card-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 8px; }
+    .mini-card .mini-card-value { font-size: 1.45rem; font-weight: 800; color: var(--primary-color); line-height: 1.1; }
+    .mini-card.alert .mini-card-value { color: var(--danger-color); }
+    .mini-card.ok .mini-card-value { color: var(--success-color); }
+    .chart-bars-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .chart-bars-box h4 { margin-bottom: 1.1rem; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+    .chart-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .chart-bar-row:last-child { margin-bottom: 0; }
+    .chart-bar-rank { width: 22px; flex-shrink: 0; font-weight: 800; color: var(--text-muted); font-size: 0.85rem; }
+    .chart-bar-label { width: 130px; flex-shrink: 0; font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chart-bar-track { flex: 1; background: var(--bg-body); border-radius: 6px; height: 24px; overflow: hidden; }
+    .chart-bar-fill { height: 100%; background: var(--primary-color); border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-size: 0.72rem; font-weight: 700; white-space: nowrap; transition: width 0.5s ease; min-width: 30px; box-sizing: border-box; }
+    .badge-stock { padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; display: inline-block; }
+    .badge-stock.critico { background: #fde8e8; color: var(--danger-color); }
+    .badge-stock.bajo { background: #fff4d9; color: #a06800; }
+    .badge-stock.ok { background: #e5f6ea; color: var(--success-color); }
+    .stock-num-critico { color: var(--danger-color); font-weight: 800; }
+    .stock-num-bajo { color: #d99400; font-weight: 800; }
+    .btn-motivo-selected { background: var(--primary-color) !important; color: white !important; border-color: var(--primary-color) !important; }
   </style>
 </head>
 <body>
@@ -119,6 +152,7 @@
     <a href="#" data-section="inventario"><i class="fas fa-boxes"></i> Inventario</a>
     <a href="#" data-section="productos"><i class="fas fa-plus-circle"></i> Reg. Producto</a>
     <a href="#" data-section="categorias"><i class="fas fa-tags"></i> Categorías</a>
+    <a href="#" data-section="resumenes"><i class="fas fa-chart-pie"></i> Resúmenes</a>
     <a href="#" data-section="reportes"><i class="fas fa-chart-line"></i> Reportes</a>
     <a href="#" data-section="responsables"><i class="fas fa-users"></i> Responsables</a>
     <a href="#" data-section="papelera"><i class="fas fa-trash-alt"></i> Papelera</a>
@@ -152,7 +186,11 @@
         </div>
       </div>
       <!-- Derecha -->
-      <div class="carrito-panel">
+      <div style="display:flex; flex-direction:column;">
+        <button class="btn warning-btn" style="width:100%; height:50px; font-size:1rem; margin-bottom:1rem; flex-shrink:0;" onclick="irASeccion('cambios')">
+          <i class="fas fa-hand-holding-usd"></i> Cambios Pendientes
+        </button>
+        <div class="carrito-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; flex-shrink: 0;">
           <h3 style="margin:0;"><i class="fas fa-shopping-cart"></i> Carrito</h3>
           <button class="btn danger-btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="vaciarCarrito()"><i class="fas fa-trash-alt"></i> Vaciar</button>
@@ -177,6 +215,7 @@
             <button class="btn warning-btn" style="width: 100%; height: 50px; font-size: 1rem; white-space: nowrap;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </section>
@@ -229,7 +268,7 @@
     <div class="form-group"><input type="text" id="f_texto" placeholder="🔎 Filtrar inventario..." oninput="renderInventario()"></div>
     <div class="data-table-container">
       <table class="data-table">
-        <thead><tr><th>Img</th><th>Nombre</th><th>Categoría</th><th>Stock</th><th>P.Venta</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Img</th><th>Nombre</th><th>Categoría</th><th>Stock</th><th>Estado</th><th>P.Venta</th><th>Valor en $</th><th>Acciones</th></tr></thead>
         <tbody id="inventarioBody"></tbody>
       </table>
     </div>
@@ -242,8 +281,23 @@
       <form id="productoForm" class="form-grid">
         <div class="form-group"><label>Nombre del Producto:</label><input type="text" id="p_nombre" required></div>
         <div class="form-group"><label>Categoría:</label><select id="p_categoria" required></select></div>
-        <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="p_precio_venta" required step="0.01"></div>
+        <div class="form-group"><label>Precio Compra ($):</label><input type="number" id="p_precio_compra" step="0.01" min="0" placeholder="Vacío = igual a Precio Venta" oninput="calcularMargen('p_precio_compra','p_precio_venta','p_margen_display')"></div>
+        <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="p_precio_venta" required step="0.01" oninput="calcularMargen('p_precio_compra','p_precio_venta','p_margen_display')"></div>
+        <div class="form-group" style="grid-column: 1/-1; margin-top:-0.5rem;">
+          <label>Margen de Ganancia:</label>
+          <div id="p_margen_display" class="margen-display">
+            <span><i class="fas fa-coins"></i> Ganancia: $0.00</span>
+            <span><i class="fas fa-percent"></i> Margen: 0.0%</span>
+          </div>
+        </div>
         <div class="form-group"><label>Stock Inicial:</label><input type="number" id="p_stock" required min="0"></div>
+        <div class="form-group">
+          <label>Alerta de Stock Mínimo:</label>
+          <input type="number" id="p_stock_minimo" min="0" placeholder="5" value="5">
+        </div>
+        <div class="form-group" style="grid-column: 1/-1; margin-top:-0.5rem;">
+          <p class="text-muted" style="font-size:0.8rem;"><i class="fas fa-envelope"></i> Cuando el stock llegue a este nivel, el producto se incluirá en la alerta de stock bajo enviada por correo a los Responsables que la tengan activada.</p>
+        </div>
         <div class="form-group" style="grid-column: 1/-1;">
           <label>Imagen del Producto (URL):</label>
           <input type="text" id="p_imagen_url" placeholder="https://ejemplo.com/imagen.jpg" oninput="previsualizarImagenUrl('p_imagen_url','p_imagen_preview')">
@@ -259,6 +313,62 @@
     <h2><i class="fas fa-tags"></i> Categorías</h2>
     <div class="form-grid" style="align-items: end;"><div class="form-group" style="margin:0;"><input type="text" id="c_nombre" placeholder="Nueva Categoría"></div><button class="btn primary-btn" style="height:50px" onclick="agregarCategoria()">Agregar</button></div>
     <div class="data-table-container"><table class="data-table"><thead><tr><th>Nombre</th><th>Acción</th></tr></thead><tbody id="categoriasBody"></tbody></table></div>
+  </section>
+
+  <!-- RESUMENES / DASHBOARD -->
+  <section id="resumenes" class="content-section">
+    <h2><i class="fas fa-chart-pie"></i> Resúmenes</h2>
+    <div class="resumen-tabs">
+      <button class="resumen-tab-btn active" data-tab="tab_stock" onclick="cambiarTabResumen('tab_stock')"><i class="fas fa-boxes"></i> Control de Stock</button>
+      <button class="resumen-tab-btn" data-tab="tab_vendidos" onclick="cambiarTabResumen('tab_vendidos')"><i class="fas fa-fire"></i> Más Vendidos</button>
+      <button class="resumen-tab-btn" data-tab="tab_margen" onclick="cambiarTabResumen('tab_margen')"><i class="fas fa-percentage"></i> Margen de Ganancia</button>
+      <button class="resumen-tab-btn" data-tab="tab_dash_inv" onclick="cambiarTabResumen('tab_dash_inv')"><i class="fas fa-tachometer-alt"></i> Dashboard Inventario</button>
+    </div>
+
+    <!-- TAB: CONTROL DE STOCK -->
+    <div class="resumen-tab-content active" id="tab_stock">
+      <div class="resumen-cards-row" id="stockResumenCards"></div>
+      <div class="data-table-container">
+        <table class="data-table">
+          <thead><tr><th>Producto</th><th>Categoría</th><th>Stock Actual</th><th>Stock Mínimo</th><th>Estado</th></tr></thead>
+          <tbody id="stockControlBody"><tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: PRODUCTOS MAS VENDIDOS -->
+    <div class="resumen-tab-content" id="tab_vendidos">
+      <div class="chart-bars-box">
+        <h4><i class="fas fa-fire" style="color:var(--danger-color);"></i> Top 10 productos más vendidos (por unidades)</h4>
+        <div id="masVendidosChart"><p class="text-muted text-center">Cargando...</p></div>
+      </div>
+      <div class="data-table-container">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Producto</th><th>Unidades Vendidas</th><th>Ingresos Generados</th></tr></thead>
+          <tbody id="masVendidosBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: MARGEN DE GANANCIA -->
+    <div class="resumen-tab-content" id="tab_margen">
+      <div class="resumen-cards-row" id="margenResumenCards"></div>
+      <div class="data-table-container">
+        <table class="data-table">
+          <thead><tr><th>Producto</th><th>P. Compra</th><th>P. Venta</th><th>Margen Unit.</th><th>Margen %</th></tr></thead>
+          <tbody id="margenBody"><tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: DASHBOARD DE INVENTARIO -->
+    <div class="resumen-tab-content" id="tab_dash_inv">
+      <div class="resumen-cards-row" id="dashInvCards"></div>
+      <div class="chart-bars-box">
+        <h4><i class="fas fa-layer-group"></i> Unidades en stock por categoría</h4>
+        <div id="dashCategoriaChart"><p class="text-muted text-center">Cargando...</p></div>
+      </div>
+    </div>
   </section>
 
   <!-- REPORTES -->
@@ -371,9 +481,21 @@
     <div class="form-group"><label>Nombre:</label><input type="text" id="e_nombre"></div>
     <div class="form-group"><label>Categoría:</label><select id="e_categoria"></select></div>
     <div class="form-grid">
-      <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="e_precio" step="0.01"></div>
-      <div class="form-group"><label>Stock:</label><input type="number" id="e_stock"></div>
+      <div class="form-group"><label>Precio Compra ($):</label><input type="number" id="e_precio_compra" step="0.01" min="0" placeholder="Vacío = igual a Precio Venta" oninput="calcularMargen('e_precio_compra','e_precio','e_margen_display')"></div>
+      <div class="form-group"><label>Precio Venta ($):</label><input type="number" id="e_precio" step="0.01" oninput="calcularMargen('e_precio_compra','e_precio','e_margen_display')"></div>
     </div>
+    <div class="form-group" style="margin-top:-0.5rem;">
+      <label>Margen de Ganancia:</label>
+      <div id="e_margen_display" class="margen-display">
+        <span><i class="fas fa-coins"></i> Ganancia: $0.00</span>
+        <span><i class="fas fa-percent"></i> Margen: 0.0%</span>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Stock:</label><input type="number" id="e_stock"></div>
+      <div class="form-group"><label>Alerta de Stock Mínimo:</label><input type="number" id="e_stock_minimo" min="0"></div>
+    </div>
+    <p class="text-muted" style="font-size:0.8rem; margin:-0.6rem 0 1rem;"><i class="fas fa-envelope"></i> Este umbral define cuándo el producto entra en la alerta de stock bajo enviada por correo a los Responsables.</p>
     <div class="form-group">
       <label>Imagen del Producto (URL):</label>
       <input type="text" id="e_imagen_url" placeholder="https://ejemplo.com/imagen.jpg" oninput="previsualizarImagenUrl('e_imagen_url','e_imagen_preview')">
@@ -424,6 +546,28 @@
     <button class="modal-close" onclick="cerrarModal('modalDetalleVenta')"><i class="fas fa-times"></i></button>
     <h3 style="margin-bottom: 1rem;"><i class="fas fa-receipt"></i> Detalle de Venta</h3>
     <div id="detalleVentaBody"></div>
+    <button class="btn danger-btn" style="width:100%; height:50px; margin-top:1.2rem;" onclick="abrirModalAnularVenta()"><i class="fas fa-trash-alt"></i> Eliminar y Regresar Inventario</button>
+  </div>
+</div>
+
+<!-- Modal Justificación de Anulación de Venta -->
+<div id="modalAnularVenta" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalAnularVenta')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-undo-alt"></i> Anular Venta</h3>
+    <p class="text-muted" style="margin-bottom:1.2rem;">Esta acción eliminará la venta de los reportes y del total recaudado, devolverá el stock vendido al inventario y guardará un registro completo en la Papelera. Indica el motivo:</p>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:0.5rem;">
+      <button type="button" class="btn secondary-btn" id="btnMotivoDevolucion" style="width:100%; height:50px; justify-content:flex-start; padding-left:16px;" onclick="seleccionarMotivoAnulacion('preset', 'Devolución / Cancelación de venta')"><i class="fas fa-undo"></i>&nbsp; Devolución o Cancelación de venta</button>
+      <button type="button" class="btn secondary-btn" id="btnMotivoOtro" style="width:100%; height:50px; justify-content:flex-start; padding-left:16px;" onclick="seleccionarMotivoAnulacion('otro')"><i class="fas fa-pen"></i>&nbsp; Algo más:</button>
+    </div>
+
+    <div class="form-group hidden" id="motivoOtroContainer" style="margin-top:0.8rem;">
+      <input type="text" id="motivoOtroTexto" placeholder="Escribe la justificación...">
+    </div>
+
+    <input type="hidden" id="anular_venta_id">
+    <button class="btn danger-btn" style="width:100%; height:50px; margin-top:1.2rem;" onclick="confirmarAnulacionVenta()"><i class="fas fa-trash-alt"></i> Confirmar Eliminación</button>
   </div>
 </div>
 
@@ -456,6 +600,7 @@
 
   let inventarioGlobal = [];
   let carrito = [];
+  let ventaSeleccionadaId = null;
   let categoriasGlobal = [];
   let reportesGlobal = [];
   let responsablesGlobal = [];
@@ -515,6 +660,25 @@
   }
 
   // NAVEGACIÓN Y MENÚ MÓVIL GLOBAL
+  function irASeccion(id) {
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+    const link = document.querySelector(`.sidebar-nav a[data-section="${id}"]`);
+    if (link) link.classList.add('active');
+    const seccion = document.getElementById(id);
+    if (seccion) seccion.classList.add('active');
+    document.getElementById('sidebar').classList.remove('active');
+    document.getElementById('sidebarOverlay').classList.remove('active'); // Cerrar siempre
+
+    if(id==='inventario'||id==='ventas') loadInventario();
+    if(id==='cambios') loadCambios();
+    if(id==='compras') loadCompras();
+    if(id==='reportes') loadReportes();
+    if(id==='resumenes') loadResumenes();
+    if(id==='papelera') loadPapelera();
+    if(id==='responsables') loadResponsables();
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     // Config offline
     document.getElementById('chk_offline').checked = isOfflineModeEnabled;
@@ -532,27 +696,26 @@
     document.querySelectorAll('.sidebar-nav a').forEach(link => {
       link.addEventListener('click', e => {
         e.preventDefault();
-        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
-        link.classList.add('active');
-        const id = link.getAttribute('data-section');
-        document.getElementById(id).classList.add('active');
-        sidebar.classList.remove('active'); overlay.classList.remove('active'); // Cerrar siempre
-
-        if(id==='inventario'||id==='ventas') loadInventario();
-        if(id==='cambios') loadCambios();
-        if(id==='compras') loadCompras();
-        if(id==='reportes') loadReportes();
-        if(id==='papelera') loadPapelera();
-        if(id==='responsables') loadResponsables();
+        irASeccion(link.getAttribute('data-section'));
       });
     });
 
     // Imagen producto previa
     // (el campo de imagen ahora es una URL directa; ver previsualizarImagenUrl)
 
+    // La web SIEMPRE debe iniciar en "Punto de Venta", sin importar el estado previo.
+    mostrarSeccionInicial();
+
     loadInitialData(); // Auto inicio sin login
   });
+
+  // Fuerza que la sección visible al cargar la página sea siempre Punto de Venta.
+  function mostrarSeccionInicial() {
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+    document.getElementById('ventas').classList.add('active');
+    document.querySelector('.sidebar-nav a[data-section="ventas"]').classList.add('active');
+  }
 
   function previsualizarImagenUrl(inputId, previewId) {
     const url = document.getElementById(inputId).value.trim();
@@ -866,18 +1029,33 @@
   }
 
   // --- INVENTARIO (Editar/Eliminar) ---
+  function estadoStock(p) {
+    const stock = parseInt(p.stock) || 0;
+    const minimo = parseInt(p.stock_minimo) || 5;
+    if (stock <= 0) return { clase: 'critico', numClase: 'stock-num-critico', label: '🔴 Sin stock' };
+    if (stock <= minimo) return { clase: 'bajo', numClase: 'stock-num-bajo', label: '🟠 Stock bajo' };
+    return { clase: 'ok', numClase: '', label: '🟢 OK' };
+  }
+
   function renderInventario() {
     const q = document.getElementById('f_texto').value.toLowerCase();
-    const html = inventarioGlobal.filter(p=>p.nombre.toLowerCase().includes(q)).map(p=>`
+    const html = inventarioGlobal.filter(p=>p.nombre.toLowerCase().includes(q)).map(p=>{
+      const e = estadoStock(p);
+      return `
       <tr>
         <td>${p.imagen_url ? `<img src="${p.imagen_url}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : `<i class="fas fa-box" style="font-size:24px;color:#ccc;"></i>`}</td>
-        <td><b>${p.nombre}</b></td><td>${p['categoría']}</td><td>${p.stock}</td><td><b style="color:var(--primary-color);">$${parseFloat(p.precio_venta||0).toFixed(2)}</b></td>
+        <td><b>${p.nombre}</b></td><td>${p['categoría']}</td>
+        <td><span class="${e.numClase}">${p.stock}</span> <span class="text-muted" style="font-size:0.75rem;">/ mín. ${parseInt(p.stock_minimo)||5}</span></td>
+        <td><span class="badge-stock ${e.clase}">${e.label}</span></td>
+        <td><b style="color:var(--primary-color);">$${parseFloat(p.precio_venta||0).toFixed(2)}</b></td>
+        <td><b style="color:var(--success-color);">$${((parseInt(p.stock)||0) * (parseFloat(p.precio_venta)||0)).toFixed(2)}</b></td>
         <td style="white-space:nowrap;">
           <button class="btn-icon edit" onclick="abrirModEditarProducto('${p.id}')"><i class="fas fa-edit"></i></button>
           <button class="btn-icon delete" onclick="eliminarProducto('${p.id}', '${p.nombre}')"><i class="fas fa-trash"></i></button>
         </td>
-      </tr>`).join('');
-    document.getElementById('inventarioBody').innerHTML = html || '<tr><td colspan="6" class="text-center">Sin datos</td></tr>';
+      </tr>`;
+    }).join('');
+    document.getElementById('inventarioBody').innerHTML = html || '<tr><td colspan="8" class="text-center">Sin datos</td></tr>';
   }
 
   function abrirModEditarProducto(id) {
@@ -886,16 +1064,23 @@
     document.getElementById('e_id').value = p.id;
     document.getElementById('e_nombre').value = p.nombre;
     document.getElementById('e_categoria').value = p['categoría'];
+    document.getElementById('e_precio_compra').value = p.precio_compra || 0;
     document.getElementById('e_precio').value = p.precio_venta;
     document.getElementById('e_stock').value = p.stock;
+    document.getElementById('e_stock_minimo').value = p.stock_minimo || 5;
     document.getElementById('e_imagen_url').value = p.imagen_url || '';
     previsualizarImagenUrl('e_imagen_url', 'e_imagen_preview');
+    calcularMargen('e_precio_compra','e_precio','e_margen_display');
     abrirModal('modalEditarProducto');
   }
 
   async function guardarEdicionProducto() {
     showSpinner('Actualizando...');
-    const payload = { action:'editarProducto', id: document.getElementById('e_id').value, nombre: document.getElementById('e_nombre').value, categoria: document.getElementById('e_categoria').value, precio_venta: document.getElementById('e_precio').value, stock: document.getElementById('e_stock').value, imagen_url: document.getElementById('e_imagen_url').value.trim() };
+    // Si el precio de compra se deja vacío, se usa el mismo precio de venta
+    const evRaw = document.getElementById('e_precio').value;
+    const ecRaw = document.getElementById('e_precio_compra').value;
+    const ec = ecRaw === '' ? evRaw : ecRaw;
+    const payload = { action:'editarProducto', id: document.getElementById('e_id').value, nombre: document.getElementById('e_nombre').value, categoria: document.getElementById('e_categoria').value, precio_compra: ec, precio_venta: evRaw, stock: document.getElementById('e_stock').value, stock_minimo: document.getElementById('e_stock_minimo').value || 5, imagen_url: document.getElementById('e_imagen_url').value.trim() };
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
       if(res.status==='success') { showToast('Producto actualizado'); cerrarModal('modalEditarProducto'); loadInventario(); }
@@ -914,15 +1099,32 @@
     hideSpinner();
   }
 
+  // --- MARGEN DE GANANCIA ---
+  function calcularMargen(idCompra, idVenta, idDisplay) {
+    const el = document.getElementById(idDisplay);
+    if (!el) return;
+    const compraRaw = document.getElementById(idCompra).value;
+    const venta = parseFloat(document.getElementById(idVenta).value) || 0;
+    // Si el precio de compra se deja vacío, se usa el mismo precio de venta
+    const compra = compraRaw === '' ? venta : (parseFloat(compraRaw) || 0);
+    const ganancia = venta - compra;
+    const margenPct = venta > 0 ? (ganancia / venta) * 100 : 0;
+    el.classList.toggle('negativo', ganancia < 0);
+    el.innerHTML = `<span><i class="fas fa-coins"></i> Ganancia: $${ganancia.toFixed(2)}</span><span><i class="fas fa-percent"></i> Margen: ${margenPct.toFixed(1)}%</span>`;
+  }
+
   // --- REGISTRAR PRODUCTO ---
   async function guardarProducto() {
     const n = document.getElementById('p_nombre').value; const c = document.getElementById('p_categoria').value; const pv = document.getElementById('p_precio_venta').value; const st = document.getElementById('p_stock').value;
     if(!n || !c || !pv || !st) return showToast('Completa los campos','error');
     showSpinner('Guardando producto...');
-    const payload = { action:'agregarProducto', nombre:n, categoria:c, precio_venta:pv, stock:st, imagen_url: document.getElementById('p_imagen_url').value.trim() };
+    // Si el precio de compra se deja vacío, se usa el mismo precio de venta
+    const pcRaw = document.getElementById('p_precio_compra').value;
+    const pc = pcRaw === '' ? pv : pcRaw;
+    const payload = { action:'agregarProducto', nombre:n, categoria:c, precio_compra: pc, precio_venta:pv, stock:st, stock_minimo: document.getElementById('p_stock_minimo').value || 5, imagen_url: document.getElementById('p_imagen_url').value.trim() };
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
-      if(res.status==='success') { showToast('Producto guardado'); document.getElementById('productoForm').reset(); document.getElementById('p_imagen_preview').innerHTML=''; loadInventario(); }
+      if(res.status==='success') { showToast('Producto guardado'); document.getElementById('productoForm').reset(); document.getElementById('p_stock_minimo').value = 5; document.getElementById('p_imagen_preview').innerHTML=''; calcularMargen('p_precio_compra','p_precio_venta','p_margen_display'); loadInventario(); }
     } catch(e){ showToast('Error','error'); }
     hideSpinner();
   }
@@ -999,6 +1201,7 @@
   function verDetalleVenta(ventaId) {
     const v = reportesGlobal.find(x => String(x.id) === String(ventaId));
     if (!v) return;
+    ventaSeleccionadaId = ventaId;
     const fecha = new Date(v.fecha);
     const items = v.items || [];
     const filasItems = items.length
@@ -1023,6 +1226,201 @@
         <div style="display:flex; justify-content:space-between;"><span>Cambio / Vuelto:</span><b style="color:var(--danger-color);">$${parseFloat(v.cambio||0).toFixed(2)}</b></div>
       </div>`;
     abrirModal('modalDetalleVenta');
+  }
+
+  // --- ANULAR VENTA (Eliminar y Regresar Inventario) ---
+  let motivoAnulacionSeleccionado = null;
+
+  function abrirModalAnularVenta() {
+    if (!ventaSeleccionadaId) return;
+    document.getElementById('anular_venta_id').value = ventaSeleccionadaId;
+    motivoAnulacionSeleccionado = null;
+    document.getElementById('motivoOtroContainer').classList.add('hidden');
+    document.getElementById('motivoOtroTexto').value = '';
+    document.getElementById('btnMotivoDevolucion').classList.remove('btn-motivo-selected');
+    document.getElementById('btnMotivoOtro').classList.remove('btn-motivo-selected');
+    abrirModal('modalAnularVenta');
+  }
+
+  function seleccionarMotivoAnulacion(tipo, textoPreset) {
+    document.getElementById('btnMotivoDevolucion').classList.toggle('btn-motivo-selected', tipo === 'preset');
+    document.getElementById('btnMotivoOtro').classList.toggle('btn-motivo-selected', tipo === 'otro');
+    document.getElementById('motivoOtroContainer').classList.toggle('hidden', tipo !== 'otro');
+    if (tipo === 'preset') {
+      motivoAnulacionSeleccionado = textoPreset;
+    } else {
+      motivoAnulacionSeleccionado = 'otro';
+      document.getElementById('motivoOtroTexto').focus();
+    }
+  }
+
+  async function confirmarAnulacionVenta() {
+    const id = document.getElementById('anular_venta_id').value;
+    if (!motivoAnulacionSeleccionado) return showToast('Selecciona un motivo.', 'error');
+
+    let motivoFinal = motivoAnulacionSeleccionado;
+    if (motivoAnulacionSeleccionado === 'otro') {
+      const texto = document.getElementById('motivoOtroTexto').value.trim();
+      if (!texto) return showToast('Escribe la justificación en "Algo más".', 'error');
+      motivoFinal = texto;
+    }
+
+    if (!confirm('¿Confirmas eliminar esta venta? El stock vendido volverá al inventario y no se puede deshacer.')) return;
+
+    showSpinner('Anulando venta...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'anularVenta', id, motivo: motivoFinal, usuario:'admin'})}).then(r=>r.json());
+      if (res.status === 'success') {
+        showToast(res.message);
+        cerrarModal('modalAnularVenta');
+        cerrarModal('modalDetalleVenta');
+        ventaSeleccionadaId = null;
+        await loadReportes();
+        await loadInventario();
+      } else showToast(res.message || 'No se pudo anular la venta.', 'error');
+    } catch (e) { showToast('Error de red al anular la venta.', 'error'); }
+    hideSpinner();
+  }
+
+  // --- RESUMENES / DASHBOARD ---
+  let ventasResumenGlobal = [];
+
+  function cambiarTabResumen(tabId) {
+    document.querySelectorAll('.resumen-tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.resumen-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    document.querySelector(`.resumen-tab-btn[data-tab="${tabId}"]`).classList.add('active');
+  }
+
+  async function loadResumenes() {
+    try {
+      if (!inventarioGlobal.length) await loadInventario();
+      const res = await fetch(`${SCRIPT_URL}?action=getVentas`).then(r=>r.json());
+      ventasResumenGlobal = res.status === 'success' ? res.data : [];
+    } catch(e) { ventasResumenGlobal = []; }
+    renderControlStock();
+    renderMasVendidos();
+    renderMargenGanancia();
+    renderDashboardInventario();
+  }
+
+  // -- Tab: Control de Stock --
+  function renderControlStock() {
+    const total = inventarioGlobal.length;
+    const bajos = inventarioGlobal.filter(p => (parseInt(p.stock)||0) > 0 && (parseInt(p.stock)||0) <= (parseInt(p.stock_minimo)||5));
+    const criticos = inventarioGlobal.filter(p => (parseInt(p.stock)||0) <= 0);
+
+    document.getElementById('stockResumenCards').innerHTML = `
+      <div class="mini-card"><div class="mini-card-label">Productos Activos</div><div class="mini-card-value">${total}</div></div>
+      <div class="mini-card ${bajos.length ? 'alert' : 'ok'}"><div class="mini-card-label">Stock Bajo</div><div class="mini-card-value">${bajos.length}</div></div>
+      <div class="mini-card ${criticos.length ? 'alert' : 'ok'}"><div class="mini-card-label">Sin Stock</div><div class="mini-card-value">${criticos.length}</div></div>
+    `;
+
+    const ordenados = [...inventarioGlobal].sort((a,b) => (parseInt(a.stock)||0) - (parseInt(b.stock)||0));
+    document.getElementById('stockControlBody').innerHTML = ordenados.map(p => {
+      const e = estadoStock(p);
+      return `<tr><td><b>${p.nombre}</b></td><td>${p['categoría']||''}</td><td><span class="${e.numClase}">${p.stock}</span></td><td>${parseInt(p.stock_minimo)||5}</td><td><span class="badge-stock ${e.clase}">${e.label}</span></td></tr>`;
+    }).join('') || `<tr><td colspan="5" class="text-center text-muted">Sin productos.</td></tr>`;
+  }
+
+  // -- Tab: Productos más vendidos --
+  function renderMasVendidos() {
+    const agregados = {};
+    ventasResumenGlobal.forEach(v => {
+      (v.items||[]).forEach(it => {
+        const id = it.producto_id;
+        if(!agregados[id]) agregados[id] = { nombre: it.producto_nombre, cantidad: 0, ingresos: 0 };
+        agregados[id].cantidad += parseInt(it.cantidad)||0;
+        agregados[id].ingresos += parseFloat(it.subtotal_linea)||0;
+      });
+    });
+    const ranking = Object.values(agregados).sort((a,b) => b.cantidad - a.cantidad).slice(0,10);
+    const maxCant = ranking.length ? ranking[0].cantidad : 0;
+
+    const chartCont = document.getElementById('masVendidosChart');
+    chartCont.innerHTML = ranking.length ? ranking.map((r, i) => {
+      const pct = maxCant ? Math.max((r.cantidad/maxCant*100), 8) : 0;
+      return `<div class="chart-bar-row">
+        <div class="chart-bar-rank">#${i+1}</div>
+        <div class="chart-bar-label" title="${r.nombre}">${r.nombre}</div>
+        <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%;">${r.cantidad} u.</div></div>
+      </div>`;
+    }).join('') : '<p class="text-muted text-center">Aún no hay ventas registradas.</p>';
+
+    document.getElementById('masVendidosBody').innerHTML = ranking.map((r,i) => `<tr><td>${i+1}</td><td><b>${r.nombre}</b></td><td>${r.cantidad}</td><td style="color:var(--success-color); font-weight:bold;">$${r.ingresos.toFixed(2)}</td></tr>`).join('') || `<tr><td colspan="4" class="text-center text-muted">Sin ventas registradas.</td></tr>`;
+  }
+
+  // -- Tab: Margen de ganancia --
+  function renderMargenGanancia() {
+    const filas = inventarioGlobal.map(p => {
+      const pc = parseFloat(p.precio_compra) || 0;
+      const pv = parseFloat(p.precio_venta) || 0;
+      const margenUnit = pv - pc;
+      const margenPct = pv > 0 ? (margenUnit/pv*100) : 0;
+      return { ...p, margenUnit, margenPct };
+    });
+
+    const gananciaPotencial = filas.reduce((s,p) => s + (p.margenUnit * (parseInt(p.stock)||0)), 0);
+
+    // Ganancia ya generada por las ventas registradas (aproximada con el costo ACTUAL del producto,
+    // ya que el sistema no guarda un historial de costos por venta).
+    const costoPorId = {}; inventarioGlobal.forEach(p => costoPorId[p.id] = parseFloat(p.precio_compra)||0);
+    let gananciaReal = 0;
+    ventasResumenGlobal.forEach(v => (v.items||[]).forEach(it => {
+      const costo = costoPorId[it.producto_id] || 0;
+      gananciaReal += ((parseFloat(it.precio_unitario)||0) - costo) * (parseInt(it.cantidad)||0);
+    }));
+
+    const margenProm = filas.length ? (filas.reduce((s,p)=>s+p.margenPct,0)/filas.length) : 0;
+
+    document.getElementById('margenResumenCards').innerHTML = `
+      <div class="mini-card"><div class="mini-card-label">Margen Promedio</div><div class="mini-card-value">${margenProm.toFixed(1)}%</div></div>
+      <div class="mini-card ok"><div class="mini-card-label">Ganancia Potencial (Stock Actual)</div><div class="mini-card-value">$${gananciaPotencial.toFixed(2)}</div></div>
+      <div class="mini-card ok"><div class="mini-card-label">Ganancia Generada (Ventas)</div><div class="mini-card-value">$${gananciaReal.toFixed(2)}</div></div>
+    `;
+
+    const ordenados = [...filas].sort((a,b) => b.margenPct - a.margenPct);
+    document.getElementById('margenBody').innerHTML = ordenados.map(p => `
+      <tr>
+        <td><b>${p.nombre}</b></td>
+        <td>$${(parseFloat(p.precio_compra)||0).toFixed(2)}</td>
+        <td>$${(parseFloat(p.precio_venta)||0).toFixed(2)}</td>
+        <td style="color:${p.margenUnit>=0?'var(--success-color)':'var(--danger-color)'}; font-weight:bold;">$${p.margenUnit.toFixed(2)}</td>
+        <td style="color:${p.margenPct>=0?'var(--success-color)':'var(--danger-color)'}; font-weight:bold;">${p.margenPct.toFixed(1)}%</td>
+      </tr>`).join('') || `<tr><td colspan="5" class="text-center text-muted">Sin productos.</td></tr>`;
+  }
+
+  // -- Tab: Dashboard de inventario --
+  function renderDashboardInventario() {
+    const totalProductos = inventarioGlobal.length;
+    const unidadesTotales = inventarioGlobal.reduce((s,p) => s + (parseInt(p.stock)||0), 0);
+    const valorCosto = inventarioGlobal.reduce((s,p) => s + (parseInt(p.stock)||0) * (parseFloat(p.precio_compra)||0), 0);
+    const valorVenta = inventarioGlobal.reduce((s,p) => s + (parseInt(p.stock)||0) * (parseFloat(p.precio_venta)||0), 0);
+    const categoriasActivas = new Set(inventarioGlobal.map(p => p['categoría'])).size;
+
+    document.getElementById('dashInvCards').innerHTML = `
+      <div class="mini-card"><div class="mini-card-label">Productos Activos</div><div class="mini-card-value">${totalProductos}</div></div>
+      <div class="mini-card"><div class="mini-card-label">Unidades en Stock</div><div class="mini-card-value">${unidadesTotales}</div></div>
+      <div class="mini-card"><div class="mini-card-label">Valor Inventario (Costo)</div><div class="mini-card-value">$${valorCosto.toFixed(2)}</div></div>
+      <div class="mini-card ok"><div class="mini-card-label">Valor Inventario (Venta)</div><div class="mini-card-value">$${valorVenta.toFixed(2)}</div></div>
+      <div class="mini-card"><div class="mini-card-label">Categorías Activas</div><div class="mini-card-value">${categoriasActivas}</div></div>
+    `;
+
+    const porCategoria = {};
+    inventarioGlobal.forEach(p => {
+      const cat = p['categoría'] || 'Sin categoría';
+      porCategoria[cat] = (porCategoria[cat]||0) + (parseInt(p.stock)||0);
+    });
+    const catOrdenadas = Object.entries(porCategoria).sort((a,b) => b[1]-a[1]);
+    const maxUnid = catOrdenadas.length ? catOrdenadas[0][1] : 0;
+
+    document.getElementById('dashCategoriaChart').innerHTML = catOrdenadas.length ? catOrdenadas.map(([cat, unidades]) => {
+      const pct = maxUnid ? Math.max((unidades/maxUnid*100), 8) : 0;
+      return `<div class="chart-bar-row">
+        <div class="chart-bar-label" title="${cat}" style="width:150px;">${cat}</div>
+        <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%;">${unidades} u.</div></div>
+      </div>`;
+    }).join('') : '<p class="text-muted text-center">Sin datos de inventario.</p>';
   }
 
   // --- RESPONSABLES ---
