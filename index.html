@@ -67,6 +67,16 @@
     .producto-info { padding: 10px; text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
     .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.25; min-height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; flex-shrink: 0; }
+    .producto-card.sin-stock { opacity: 0.55; cursor: not-allowed; }
+    .stock-pill { display:inline-flex; align-items:center; gap:4px; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:20px; margin-bottom:6px; white-space:nowrap; }
+    .stock-pill.ok { background:#e5f6ea; color:var(--success-color); }
+    .stock-pill.bajo { background:#fff4d9; color:#a06800; }
+    .stock-pill.critico { background:#fde8e8; color:var(--danger-color); }
+    .carrito-item-stock { font-size:0.72rem; font-weight:700; margin-top:2px; }
+    .carrito-item-stock.ok { color:var(--success-color); }
+    .carrito-item-stock.bajo { color:#a06800; }
+    .carrito-item-stock.critico { color:var(--danger-color); }
+    .carrito-qty button:disabled { opacity:0.35; cursor:not-allowed; }
 
     .carrito-panel { background: var(--bg-card); padding: 1.5rem 1.5rem 5rem 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 500px; margin-bottom: 1.5rem;}
     .carrito-items { max-height: 320px; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; min-height: 150px;}
@@ -173,8 +183,11 @@
       <i class="fas fa-wifi-slash"></i> Estás sin conexión. Las ventas se guardarán localmente en el dispositivo.
     </div>
     <div id="syncBanner" class="hidden" style="background:var(--warning-color); color:black; padding:12px; border-radius:8px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-      <span style="font-weight:bold;"><i class="fas fa-cloud-upload-alt"></i> Tienes <b id="syncCount">0</b> ventas pendientes de subir a la nube.</span> 
-      <button class="btn" style="background:black; color:white;" onclick="sincronizarVentas()"><i class="fas fa-sync"></i> Sincronizar Ahora</button>
+      <span style="font-weight:bold;"><i class="fas fa-cloud-upload-alt"></i> Tienes <b id="syncCount">0</b> ventas pendientes de subir a la nube.</span>
+      <span style="display:flex; gap:8px;">
+        <button class="btn" style="background:white; color:black; border:1px solid black;" onclick="verVentasPendientes()"><i class="fas fa-list"></i> Ver pendientes</button>
+        <button class="btn" style="background:black; color:white;" onclick="sincronizarVentas()"><i class="fas fa-sync"></i> Sincronizar Ahora</button>
+      </span>
     </div>
 
     <div class="pos-layout">
@@ -265,7 +278,7 @@
     <div class="form-group"><input type="text" id="f_texto" placeholder="🔎 Filtrar inventario..." oninput="renderInventario()"></div>
     <div class="data-table-container">
       <table class="data-table">
-        <thead><tr><th>Img</th><th>Nombre</th><th>Categoría</th><th>Stock</th><th>Estado</th><th>P.Venta</th><th>Valor en $</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Img</th><th>Nombre</th><th>Categoría</th><th>Stock</th><th>Estado</th><th>P.Compra</th><th>P.Venta</th><th>Valor en $</th><th>Acciones</th></tr></thead>
         <tbody id="inventarioBody"></tbody>
       </table>
     </div>
@@ -591,6 +604,16 @@
   </div>
 </div>
 
+<!-- Modal Ventas Pendientes (cola offline) -->
+<div id="modalVentasPendientes" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalVentasPendientes')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-cloud-upload-alt"></i> Ventas Pendientes de Sincronizar</h3>
+    <p class="text-muted" style="margin-bottom:1rem;">Estas ventas se guardaron en este dispositivo mientras no había conexión. Si una muestra un conflicto de stock (no se pudo sincronizar porque ya no hay suficiente inventario real), puedes descartarla manualmente para dejar de intentar subirla.</p>
+    <div id="pendientesBody"></div>
+  </div>
+</div>
+
 <script>
   // URL DEL SCRIPT
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdv3CQlgdo_UX1cGbAeFm6CWQxGbqraUBSH_quHKW0XQ5oSJ-drQrbUNtM60VNv6xZ/exec";
@@ -783,11 +806,15 @@
     
     cont.innerHTML = filtrados.map(p => {
       const imgHtml = p.imagen_url ? `<img src="${p.imagen_url}" class="producto-img">` : `<div class="producto-img"><i class="fas fa-box"></i></div>`;
+      const e = estadoStock(p);
+      const stock = parseInt(p.stock) || 0;
+      const sinStock = stock <= 0;
       return `
-      <div class="producto-card" onclick="addToCart('${p.id}')">
+      <div class="producto-card ${sinStock ? 'sin-stock' : ''}" onclick="addToCart('${p.id}')" title="${sinStock ? 'Sin stock disponible' : ''}">
         ${imgHtml}
         <div class="producto-info">
           <div class="producto-nombre">${p.nombre}</div>
+          <span class="stock-pill ${e.clase}"><i class="fas fa-cube"></i> Stock: ${stock}</span>
           <div class="producto-precio">$${parseFloat(p.precio_venta||0).toFixed(2)}</div>
         </div>
       </div>`;
@@ -798,7 +825,12 @@
   function addToCart(id) {
     const p = inventarioGlobal.find(x => x.id === id);
     if(!p) return;
+    const stockDisponible = parseInt(p.stock) || 0;
     const item = carrito.find(x => x.producto_id === id);
+    const enCarrito = item ? item.cantidad : 0;
+    if(enCarrito + 1 > stockDisponible) {
+      return showToast(stockDisponible <= 0 ? `Sin stock de ${p.nombre}` : `Stock insuficiente de ${p.nombre}. Disponible: ${stockDisponible}`, 'error');
+    }
     if(item) item.cantidad++;
     else carrito.push({ producto_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_venta), imagen_url: p.imagen_url || '' });
     renderCarrito();
@@ -830,14 +862,21 @@
     cont.innerHTML = carrito.map((it, idx) => {
       total += (it.cantidad * it.precio_unitario);
       const imgHtml = it.imagen_url ? `<img src="${it.imagen_url}" class="carrito-item-img">` : `<div class="carrito-item-img-placeholder"><i class="fas fa-box"></i></div>`;
+      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
+      const stockDisponible = prod ? (parseInt(prod.stock) || 0) : it.cantidad; // si no se encuentra, no bloquear
+      const e = prod ? estadoStock(prod) : { clase: 'ok' };
+      const alMaximo = it.cantidad >= stockDisponible;
       return `
       <div class="carrito-item">
         ${imgHtml}
-        <div style="flex:1; font-size:0.95rem; font-weight:600; padding-right:10px;">${it.nombre}</div>
+        <div style="flex:1; font-size:0.95rem; font-weight:600; padding-right:10px;">
+          ${it.nombre}
+          <div class="carrito-item-stock ${e.clase}"><i class="fas fa-cube"></i> Stock disponible: ${stockDisponible}</div>
+        </div>
         <div class="carrito-qty">
           <button onclick="cambiarQty(${idx}, -1)">-</button>
           <span style="width:25px; text-align:center; font-weight:bold;">${it.cantidad}</span>
-          <button onclick="cambiarQty(${idx}, 1)">+</button>
+          <button onclick="cambiarQty(${idx}, 1)" ${alMaximo ? 'disabled title="No hay más stock disponible"' : ''}>+</button>
         </div>
         <div style="text-align:right; display:flex; align-items:center; justify-content:flex-end; gap:8px;">
           <span style="font-weight:bold; font-size:1.05rem;">$${(it.cantidad*it.precio_unitario).toFixed(2)}</span>
@@ -850,7 +889,20 @@
     calcularCambio();
   }
 
-  function cambiarQty(idx, delta) { carrito[idx].cantidad += delta; if(carrito[idx].cantidad <= 0) carrito.splice(idx, 1); renderCarrito(); }
+  function cambiarQty(idx, delta) {
+    const it = carrito[idx];
+    if(delta > 0) {
+      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
+      const stockDisponible = prod ? (parseInt(prod.stock) || 0) : Infinity;
+      if(it.cantidad + delta > stockDisponible) {
+        showToast(`Stock insuficiente de ${it.nombre}. Disponible: ${stockDisponible}`, 'error');
+        return;
+      }
+    }
+    it.cantidad += delta;
+    if(it.cantidad <= 0) carrito.splice(idx, 1);
+    renderCarrito();
+  }
 
   function calcularCambio() {
     const total = parseFloat(document.getElementById('c_total').dataset.val) || 0;
@@ -879,6 +931,20 @@
     const cambio = pago > total ? (pago - total) : 0;
 
     if (quedaPendiente && cambio <= 0) return showToast('No hay vuelto que dejar pendiente.', 'error');
+
+    // VALIDACIÓN FINAL DE STOCK contra la copia local de inventario (crítico en modo offline,
+    // donde no hay backend que valide en el momento). Suma cantidades por si un producto
+    // apareciera más de una vez, aunque el carrito ya los agrupa.
+    const pedidoPorProducto = {};
+    for(const it of carrito) pedidoPorProducto[it.producto_id] = (pedidoPorProducto[it.producto_id]||0) + it.cantidad;
+    for(const it of carrito) {
+      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
+      if(!prod) continue;
+      const disponible = parseInt(prod.stock) || 0;
+      if(pedidoPorProducto[it.producto_id] > disponible) {
+        return showToast(`Stock insuficiente de ${it.nombre}. Disponible: ${disponible}, en carrito: ${pedidoPorProducto[it.producto_id]}.`, 'error');
+      }
+    }
 
     showSpinner('Registrando venta...');
     const payload = { action: 'registrarVenta', cliente_nombre: clienteInput.value.trim(), pago_con: pago, cambio: cambio, pendiente: quedaPendiente, items: carrito, usuario: 'admin' };
@@ -940,11 +1006,20 @@
     
     showSpinner('Subiendo a la nube...');
     let restantes = [];
+    let conflictos = 0; // ventas que el servidor rechazó por validación (ej. stock insuficiente) — no son error de red
     for(let i=0; i<queue.length; i++) {
       try {
         const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(queue[i])}).then(r=>r.json());
-        if(res.status !== 'success') restantes.push(queue[i]);
+        if(res.status === 'success') continue;
+        // 'warning' = el servidor validó y rechazó la venta (p.ej. ya no hay stock real).
+        // Reintentar automáticamente jamás la va a resolver sola, así que se marca como conflicto.
+        queue[i]._syncError = res.message || 'No se pudo sincronizar.';
+        queue[i]._esConflicto = (res.status === 'warning');
+        if(res.status === 'warning') conflictos++;
+        restantes.push(queue[i]);
       } catch(e) {
+        queue[i]._syncError = 'Error de red al sincronizar.';
+        queue[i]._esConflicto = false;
         restantes.push(queue[i]);
       }
     }
@@ -954,9 +1029,61 @@
     if(restantes.length === 0) {
       showToast('¡Todas las ventas sincronizadas correctamente!', 'success');
       loadInventario(); 
+    } else if(conflictos > 0) {
+      showToast(`${conflictos} venta(s) pendiente(s) tienen conflicto de stock y necesitan revisión manual. Toca "Ver pendientes".`, 'error');
     } else {
       showToast(`Quedaron ${restantes.length} ventas sin sincronizar (Error de red).`, 'warning');
     }
+  }
+
+  // VER / GESTIONAR VENTAS PENDIENTES ATASCADAS
+  // Permite inspeccionar la cola offline y, si el servidor la rechazó por conflicto de stock,
+  // descartarla manualmente (devolviendo el stock que se había descontado en la caché local)
+  // en vez de tener que borrar todos los datos del navegador.
+  function verVentasPendientes() {
+    const queue = JSON.parse(localStorage.getItem('pos_ventas_queue') || '[]');
+    const cont = document.getElementById('pendientesBody');
+    if(!queue.length) {
+      cont.innerHTML = '<p class="text-muted text-center" style="padding:1rem;">No hay ventas pendientes en este dispositivo.</p>';
+    } else {
+      cont.innerHTML = queue.map((v, idx) => {
+        const itemsTxt = v.items.map(it => `${it.cantidad}x ${it.nombre}`).join(', ');
+        const estado = v._syncError
+          ? `<div style="color:var(--danger-color); font-weight:700; font-size:0.85rem; margin-top:4px;"><i class="fas fa-triangle-exclamation"></i> ${v._syncError}</div>`
+          : `<div class="text-muted" style="font-size:0.85rem; margin-top:4px;">Aún no se ha intentado sincronizar.</div>`;
+        return `
+        <div style="border:1px solid var(--border-color); border-radius:var(--radius); padding:12px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; gap:10px;">
+            <div>
+              <b>${v.cliente_nombre || 'N/A'}</b> — $${v.items.reduce((s,it)=>s+it.cantidad*it.precio_unitario,0).toFixed(2)}
+              <div class="text-muted" style="font-size:0.85rem;">${itemsTxt}</div>
+              ${estado}
+            </div>
+            <button class="btn-icon delete" title="Descartar esta venta pendiente y devolver el stock" onclick="descartarVentaPendiente(${idx})"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    abrirModal('modalVentasPendientes');
+  }
+
+  function descartarVentaPendiente(idx) {
+    if(!confirm('¿Descartar esta venta pendiente? Esto NO la registrará en la nube y devolverá el stock descontado en este dispositivo. Úsalo solo si la venta ya no es válida (ej. conflicto de stock).')) return;
+    const queue = JSON.parse(localStorage.getItem('pos_ventas_queue') || '[]');
+    const venta = queue[idx];
+    if(!venta) return;
+    // Devolver el stock que se había descontado localmente al agregar esta venta a la cola
+    venta.items.forEach(it => {
+      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
+      if(prod) prod.stock = (parseInt(prod.stock) || 0) + it.cantidad;
+    });
+    localStorage.setItem('pos_inventario_cache', JSON.stringify(inventarioGlobal));
+    queue.splice(idx, 1);
+    localStorage.setItem('pos_ventas_queue', JSON.stringify(queue));
+    renderGridPOS();
+    renderSyncBanner();
+    showToast('Venta pendiente descartada y stock devuelto localmente.', 'success');
+    verVentasPendientes();
   }
 
 
@@ -1002,7 +1129,9 @@
     const cant = document.getElementById('co_cantidad').value;
     const costo = document.getElementById('co_costo').value;
 
-    if(!pid || !cant || !costo) return showToast('Completa todos los campos.', 'error');
+    if(!pid || !cant || costo === '') return showToast('Completa todos los campos.', 'error');
+    if(parseInt(cant) <= 0) return showToast('La cantidad debe ser mayor a 0.', 'error');
+    if(parseFloat(costo) < 0) return showToast('El costo no puede ser negativo.', 'error');
 
     showSpinner('Registrando compra...');
     const payload = {
@@ -1044,6 +1173,7 @@
         <td><b>${p.nombre}</b></td><td>${p['categoría']}</td>
         <td><span class="${e.numClase}">${p.stock}</span> <span class="text-muted" style="font-size:0.75rem;">/ mín. ${parseInt(p.stock_minimo)||5}</span></td>
         <td><span class="badge-stock ${e.clase}">${e.label}</span></td>
+        <td><b style="color:var(--text-muted);">$${parseFloat(p.precio_compra||0).toFixed(2)}</b></td>
         <td><b style="color:var(--primary-color);">$${parseFloat(p.precio_venta||0).toFixed(2)}</b></td>
         <td><b style="color:var(--success-color);">$${((parseInt(p.stock)||0) * (parseFloat(p.precio_venta)||0)).toFixed(2)}</b></td>
         <td style="white-space:nowrap;">
@@ -1052,7 +1182,7 @@
         </td>
       </tr>`;
     }).join('');
-    document.getElementById('inventarioBody').innerHTML = html || '<tr><td colspan="8" class="text-center">Sin datos</td></tr>';
+    document.getElementById('inventarioBody').innerHTML = html || '<tr><td colspan="9" class="text-center">Sin datos</td></tr>';
   }
 
   function abrirModEditarProducto(id) {
@@ -1072,6 +1202,16 @@
   }
 
   async function guardarEdicionProducto() {
+    const nombreEdit = document.getElementById('e_nombre').value;
+    const categoriaEdit = document.getElementById('e_categoria').value;
+    const evRawCheck = document.getElementById('e_precio').value;
+    const stockEditCheck = document.getElementById('e_stock').value;
+    if(!nombreEdit.trim() || !categoriaEdit || evRawCheck === '' || stockEditCheck === '') return showToast('Completa todos los campos.', 'error');
+    if(parseFloat(evRawCheck) < 0) return showToast('El precio de venta no puede ser negativo.', 'error');
+    if(parseInt(stockEditCheck) < 0) return showToast('El stock no puede ser negativo.', 'error');
+    const ecRawCheck = document.getElementById('e_precio_compra').value;
+    if(ecRawCheck !== '' && parseFloat(ecRawCheck) < 0) return showToast('El precio de compra no puede ser negativo.', 'error');
+
     showSpinner('Actualizando...');
     // Si el precio de compra se deja vacío, se usa el mismo precio de venta
     const evRaw = document.getElementById('e_precio').value;
@@ -1113,7 +1253,11 @@
   // --- REGISTRAR PRODUCTO ---
   async function guardarProducto() {
     const n = document.getElementById('p_nombre').value; const c = document.getElementById('p_categoria').value; const pv = document.getElementById('p_precio_venta').value; const st = document.getElementById('p_stock').value;
-    if(!n || !c || !pv || !st) return showToast('Completa los campos','error');
+    if(!n.trim() || !c || pv === '' || st === '') return showToast('Completa los campos','error');
+    if(parseFloat(pv) < 0) return showToast('El precio de venta no puede ser negativo.', 'error');
+    if(parseInt(st) < 0) return showToast('El stock no puede ser negativo.', 'error');
+    const pcRawCheck = document.getElementById('p_precio_compra').value;
+    if(pcRawCheck !== '' && parseFloat(pcRawCheck) < 0) return showToast('El precio de compra no puede ser negativo.', 'error');
     showSpinner('Guardando producto...');
     // Si el precio de compra se deja vacío, se usa el mismo precio de venta
     const pcRaw = document.getElementById('p_precio_compra').value;
@@ -1122,7 +1266,8 @@
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
       if(res.status==='success') { showToast('Producto guardado'); document.getElementById('productoForm').reset(); document.getElementById('p_stock_minimo').value = 5; document.getElementById('p_imagen_preview').innerHTML=''; calcularMargen('p_precio_compra','p_precio_venta','p_margen_display'); loadInventario(); }
-    } catch(e){ showToast('Error','error'); }
+      else showToast(res.message || 'No se pudo guardar el producto.', 'error');
+    } catch(e){ showToast('Error de red', 'error'); }
     hideSpinner();
   }
 
@@ -1131,16 +1276,22 @@
     document.getElementById('categoriasBody').innerHTML = categoriasGlobal.map(c=>`<tr><td><b style="font-size:1.05rem;">${c.nombre}</b></td><td style="width:60px;"><button class="btn-icon delete" onclick="eliminarCategoria('${c.id}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
   }
   async function agregarCategoria() {
-    const n = document.getElementById('c_nombre').value; if(!n) return;
+    const n = document.getElementById('c_nombre').value; if(!n.trim()) return showToast('Escribe un nombre de categoría.', 'error');
     showSpinner();
-    await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'agregarCategoria', nombre:n})});
-    document.getElementById('c_nombre').value=''; await loadInitialData();
+    try {
+      await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'agregarCategoria', nombre:n})});
+      document.getElementById('c_nombre').value=''; await loadInitialData();
+    } catch(e) { showToast('Error de red al agregar la categoría.', 'error'); }
+    hideSpinner();
   }
   async function eliminarCategoria(id) {
     if(!confirm('¿Eliminar categoría?')) return;
     showSpinner();
-    await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'eliminarCategoria', id:id})});
-    await loadInitialData();
+    try {
+      await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'eliminarCategoria', id:id})});
+      await loadInitialData();
+    } catch(e) { showToast('Error de red al eliminar la categoría.', 'error'); }
+    hideSpinner();
   }
 
   // --- REPORTES FILTRADOS ---
@@ -1464,15 +1615,19 @@
     try {
       const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}).then(r=>r.json());
       if(res.status==='success') { showToast('Responsable guardado.'); cerrarModal('modalResponsable'); loadResponsables(); }
-    } catch(e) { showToast('Error','error'); }
+      else showToast(res.message || 'No se pudo guardar el responsable.', 'error');
+    } catch(e) { showToast('Error de red', 'error'); }
     hideSpinner();
   }
 
   async function eliminarResponsable(id) {
     if(!confirm('¿Eliminar responsable?')) return;
     showSpinner();
-    await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'eliminarResponsable', id:id})});
-    loadResponsables(); hideSpinner();
+    try {
+      await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'eliminarResponsable', id:id})});
+      await loadResponsables();
+    } catch(e) { showToast('Error de red al eliminar el responsable.', 'error'); }
+    hideSpinner();
   }
 
   function abrirModalPruebaEnvio(id, email) {
