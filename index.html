@@ -32,7 +32,7 @@
     .sidebar-overlay.active { display: block; }
 
     /* CONTENIDO PRINCIPAL */
-    .main-content { flex: 1; padding: 1.5rem; padding-top: 5rem; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+    .main-content { flex: 1; padding: 1.5rem; padding-top: 5rem; padding-bottom: 2.5rem; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
     .content-section { display: none; flex: 1; flex-direction: column; height: 100%;}
     .content-section.active { display: flex; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -57,7 +57,7 @@
     .pos-layout { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; flex: 1; min-height: 0;}
     @media (max-width: 950px) { .pos-layout { grid-template-columns: 1fr; overflow-y: auto;} }
     
-    .productos-grid-container { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 450px;}
+    .productos-grid-container { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 450px; margin-bottom: 1.5rem;}
     .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; margin-top: 0.5rem; overflow-y: auto; flex: 1; padding-right: 5px; align-content: start; }
     .producto-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; background: white; }
     .producto-card:active { transform: scale(0.95); }
@@ -66,7 +66,7 @@
     .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.2;}
     .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; }
 
-    .carrito-panel { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 600px;}
+    .carrito-panel { background: var(--bg-card); padding: 1.5rem 1.5rem 3rem 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 680px; margin-bottom: 1.5rem;}
     .carrito-items { max-height: 320px; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; min-height: 150px;}
     .carrito-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bg-body); }
     .carrito-qty { display: flex; align-items: center; gap: 5px; }
@@ -91,6 +91,7 @@
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast-success { border-left: 5px solid var(--success-color); }
     .toast-error { border-left: 5px solid var(--danger-color); }
+    .toast-warning { border-left: 5px solid var(--warning-color); }
     
     .spinner-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 5000; display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: 600; color: var(--primary-color); }
 
@@ -327,10 +328,33 @@
       </div>
     </div>
 
-    <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color);">
+    <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color); margin-bottom:1rem;">
       <h3 style="margin-bottom:10px;"><i class="fas fa-database"></i> Base de Datos</h3>
       <p class="text-muted" style="margin-bottom: 1rem;">La inicialización creará las hojas de cálculo necesarias en tu Google Sheet si no existen. Útil para la primera configuración.</p>
       <button class="btn primary-btn" onclick="iniciarBD()"><i class="fas fa-database"></i> Inicializar Base de Datos</button>
+    </div>
+
+    <div style="background:var(--bg-card); padding:1.5rem; border-radius:var(--radius-lg); border:1px solid var(--border-color);">
+      <h3 style="margin-bottom:10px;"><i class="fas fa-cloud-download-alt"></i> Copias de Seguridad (Exportar / Importar)</h3>
+      <p class="text-muted" style="margin-bottom: 1rem;">Descarga un respaldo completo de productos, categorías y ventas en un solo archivo JSON, o restaura uno anterior. Es el mismo formato que se envía automáticamente por correo a los Responsables.</p>
+
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <button class="btn secondary-btn" style="width:100%; height:50px;" onclick="exportarDatos()"><i class="fas fa-file-export"></i> Exportar Datos (Descargar JSON)</button>
+
+        <div>
+          <label style="display:block; margin-bottom:6px; font-weight:600; font-size:0.9rem;">Importar / Restaurar desde archivo JSON:</label>
+          <input type="file" id="importarDatosFile" accept="application/json" style="margin-bottom:10px; width:100%;">
+          <button class="btn warning-btn" style="width:100%; height:50px;" onclick="importarDatos()"><i class="fas fa-file-import"></i> Importar y Restaurar Datos</button>
+          <p class="text-muted" style="font-size:0.8rem; margin-top:6px;">⚠️ Esto reemplaza los productos, categorías y ventas actuales por los del archivo. No se puede deshacer.</p>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border-color); margin:4px 0;">
+
+        <div>
+          <button class="btn primary-btn" style="width:100%; height:50px;" onclick="enviarBackupAhora()"><i class="fas fa-paper-plane"></i> Enviar Copia de Seguridad a Responsables Ahora</button>
+          <p class="text-muted" style="font-size:0.8rem; margin-top:6px;">Envía por correo, en este momento, la misma copia de seguridad a los responsables que tengan activado "Copia de seguridad JSON/CSV" en la sección Responsables.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -406,10 +430,11 @@
   <div class="modal-content">
     <button class="modal-close" onclick="cerrarModal('modalPruebaEnvio')"><i class="fas fa-times"></i></button>
     <h3 style="margin-bottom: 1rem;"><i class="fas fa-paper-plane"></i> Probar Envío de Correo</h3>
-    <p class="text-muted" style="margin-bottom:1rem;">Se enviará un correo de prueba a <b id="prueba_email_destino"></b> con el reporte que elijas, sin esperar la fecha programada.</p>
+    <p class="text-muted" style="margin-bottom:1rem;">Se enviará un correo de prueba a <b id="prueba_email_destino"></b> con el reporte que elijas, sin esperar la fecha programada. Si eliges "Probar TODOS", se enviará un correo de prueba por cada tipo de reporte (uno por cada uno).</p>
     <div class="form-group">
       <label>¿Qué reporte quieres probar?</label>
       <select id="prueba_tipo">
+        <option value="todos">🔁 Probar TODOS los reportes</option>
         <option value="mensual">📊 Resumen mensual</option>
         <option value="anual">📅 Resumen anual</option>
         <option value="ventas_grandes">💰 Aviso de venta grande</option>
@@ -1086,6 +1111,52 @@
       if(res.status==='success') { showToast('Base de datos inicializada.'); loadInitialData(); }
       else showToast(res.message, 'error');
     } catch(e) { showToast('Error al conectar con la base de datos.', 'error'); }
+    hideSpinner();
+  }
+
+  // --- AJUSTES: COPIAS DE SEGURIDAD ---
+  async function exportarDatos() {
+    showSpinner('Generando copia de seguridad...');
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=exportarDatos`).then(r=>r.json());
+      if(res.status==='success') {
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const fecha = new Date().toISOString().split('T')[0];
+        const a = document.createElement('a');
+        a.href = url; a.download = `respaldo_pos_${fecha}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        showToast('Copia de seguridad descargada.');
+      } else showToast(res.message || 'Error al generar la copia de seguridad.', 'error');
+    } catch(e) { showToast('Error de red al exportar los datos.', 'error'); }
+    hideSpinner();
+  }
+
+  async function importarDatos() {
+    const fileInput = document.getElementById('importarDatosFile');
+    const file = fileInput.files[0];
+    if(!file) return showToast('Selecciona primero un archivo JSON de respaldo.', 'error');
+    if(!confirm('⚠️ Esto reemplazará los productos, categorías y ventas actuales por los del archivo. ¿Deseas continuar?')) return;
+
+    showSpinner('Importando datos...');
+    try {
+      const texto = await file.text();
+      const backup = JSON.parse(texto);
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'importarDatos', backup})}).then(r=>r.json());
+      if(res.status==='success') { showToast(res.message); fileInput.value=''; loadInitialData(); }
+      else showToast(res.message || 'Error al importar los datos.', 'error');
+    } catch(e) { showToast('El archivo seleccionado no es un JSON válido.', 'error'); }
+    hideSpinner();
+  }
+
+  async function enviarBackupAhora() {
+    if(!confirm('¿Enviar la copia de seguridad ahora por correo a los responsables configurados?')) return;
+    showSpinner('Enviando copia de seguridad...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'enviarBackupAhora'})}).then(r=>r.json());
+      showToast(res.message, res.status==='success' ? 'success' : (res.status==='warning' ? 'warning' : 'error'));
+    } catch(e) { showToast('Error de red al enviar la copia de seguridad.', 'error'); }
     hideSpinner();
   }
 </script>
