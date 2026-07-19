@@ -59,12 +59,12 @@
     
     .productos-grid-container { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 450px; margin-bottom: 1.5rem;}
     .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; margin-top: 0.5rem; overflow-y: auto; flex: 1; padding-right: 5px; align-content: start; }
-    .producto-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; background: white; }
+    .producto-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform 0.1s; display: flex; flex-direction: column; background: white; min-height: 195px; }
     .producto-card:active { transform: scale(0.95); }
-    .producto-img { width: 100%; height: 110px; object-fit: cover; background: var(--bg-body); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2rem;}
+    .producto-img { width: 100%; height: 110px; object-fit: cover; background: var(--bg-body); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2rem; flex-shrink: 0;}
     .producto-info { padding: 10px; text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-    .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.2;}
-    .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; }
+    .producto-nombre { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.25; min-height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .producto-precio { color: var(--primary-color); font-weight: 800; font-size: 1.1rem; flex-shrink: 0; }
 
     .carrito-panel { background: var(--bg-card); padding: 1.5rem 1.5rem 5rem 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 500px; margin-bottom: 1.5rem;}
     .carrito-items { max-height: 320px; overflow-y: auto; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; min-height: 150px;}
@@ -186,11 +186,7 @@
         </div>
       </div>
       <!-- Derecha -->
-      <div style="display:flex; flex-direction:column;">
-        <button class="btn warning-btn" style="width:100%; height:50px; font-size:1rem; margin-bottom:1rem; flex-shrink:0;" onclick="irASeccion('cambios')">
-          <i class="fas fa-hand-holding-usd"></i> Cambios Pendientes
-        </button>
-        <div class="carrito-panel">
+      <div class="carrito-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; flex-shrink: 0;">
           <h3 style="margin:0;"><i class="fas fa-shopping-cart"></i> Carrito</h3>
           <button class="btn danger-btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="vaciarCarrito()"><i class="fas fa-trash-alt"></i> Vaciar</button>
@@ -215,7 +211,6 @@
             <button class="btn warning-btn" style="width: 100%; height: 50px; font-size: 1rem; white-space: nowrap;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
           </div>
         </div>
-      </div>
       </div>
     </div>
   </section>
