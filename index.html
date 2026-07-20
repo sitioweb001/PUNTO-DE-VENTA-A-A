@@ -454,6 +454,7 @@
       <div class="form-group" style="margin:0; display:flex; gap:10px;">
         <button class="btn danger-btn" style="height:50px; white-space:nowrap;" onclick="exportarReportePDF()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
         <button class="btn" style="height:50px; white-space:nowrap; background:var(--success-color); color:white;" onclick="exportarReporteExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+        <button class="btn" style="height:50px; white-space:nowrap; background:#6c5ce7; color:white;" onclick="abrirModalDivision()"><i class="fas fa-users"></i> División</button>
       </div>
     </div>
 
@@ -677,6 +678,43 @@
     </div>
     <input type="hidden" id="ec_id">
     <button class="btn success-btn" style="width:100%; height:50px; margin-top:10px; background:var(--success-color); color:white;" onclick="confirmarEntregaCambio()"><i class="fas fa-check"></i> Confirmar Entrega</button>
+  </div>
+</div>
+
+<!-- Modal División del Total Recaudado entre 2 personas -->
+<div id="modalDivision" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalDivision')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-users"></i> División del Total Recaudado</h3>
+    <p class="text-muted" style="margin-bottom:1rem;">Divide el total recaudado del período filtrado (<b id="div_periodo_label">—</b>) entre 2 personas.</p>
+    <p class="text-muted" style="margin-bottom:1rem;">Total a dividir: <b id="div_total_label" style="color:var(--success-color); font-size:1.1rem;">$0.00</b></p>
+
+    <div class="form-grid" style="margin-bottom:0.5rem;">
+      <div class="form-group" style="margin:0;">
+        <label>Nombre Persona 1:</label>
+        <input type="text" id="div_nombre1" value="Persona 1" oninput="calcularDivision()">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Nombre Persona 2:</label>
+        <input type="text" id="div_nombre2" value="Persona 2" oninput="calcularDivision()">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>% para Persona 1 (el resto va para Persona 2):</label>
+      <input type="number" id="div_porcentaje1" min="0" max="100" step="1" value="50" oninput="calcularDivision()">
+    </div>
+
+    <div class="form-grid" style="margin-top:0.5rem;">
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" id="div_nombre1_label" style="font-weight:bold; text-transform:uppercase; font-size:0.78rem;">Persona 1</div>
+        <h3 id="div_monto1">$0.00</h3>
+      </div>
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" id="div_nombre2_label" style="font-weight:bold; text-transform:uppercase; font-size:0.78rem;">Persona 2</div>
+        <h3 id="div_monto2">$0.00</h3>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1641,6 +1679,36 @@
 
     const nombreArchivo = `reporte_ventas_${r.periodoTexto.replace(/\s+/g,'_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
+  }
+
+  // --- DIVISIÓN: reparte el Total Recaudado del período filtrado entre 2 personas ---
+  function abrirModalDivision() {
+    const r = reportesResumenActual || { total: 0, periodoTexto: 'Hoy' };
+    document.getElementById('div_periodo_label').textContent = r.periodoTexto || 'Hoy';
+    document.getElementById('div_total_label').textContent = `$${(r.total||0).toFixed(2)}`;
+    calcularDivision();
+    abrirModal('modalDivision');
+  }
+
+  function calcularDivision() {
+    const r = reportesResumenActual || { total: 0 };
+    const total = r.total || 0;
+
+    let pct1 = parseFloat(document.getElementById('div_porcentaje1').value);
+    if (isNaN(pct1) || pct1 < 0) pct1 = 0;
+    if (pct1 > 100) pct1 = 100;
+    const pct2 = 100 - pct1;
+
+    const nombre1 = document.getElementById('div_nombre1').value.trim() || 'Persona 1';
+    const nombre2 = document.getElementById('div_nombre2').value.trim() || 'Persona 2';
+
+    const monto1 = total * (pct1 / 100);
+    const monto2 = total * (pct2 / 100);
+
+    document.getElementById('div_nombre1_label').textContent = `${nombre1} (${pct1}%)`;
+    document.getElementById('div_nombre2_label').textContent = `${nombre2} (${pct2}%)`;
+    document.getElementById('div_monto1').textContent = `$${monto1.toFixed(2)}`;
+    document.getElementById('div_monto2').textContent = `$${monto2.toFixed(2)}`;
   }
 
   // --- DETALLE DE VENTA (clic en una fila de Reportes) ---
