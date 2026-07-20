@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ERP POS LITE - Simplificado</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   
   <style>
     :root {
@@ -232,12 +235,60 @@
 
   <!-- CAMBIOS PENDIENTES -->
   <section id="cambios" class="content-section">
-    <h2><i class="fas fa-hand-holding-usd"></i> Cambios Pendientes</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 1rem;">
+      <h2 style="margin:0;"><i class="fas fa-hand-holding-usd"></i> Cambios Pendientes</h2>
+      <button class="btn primary-btn" onclick="abrirModalIngresarCambio()"><i class="fas fa-plus-circle"></i> Ingresar Cambio</button>
+    </div>
     <div class="data-table-container">
       <table class="data-table">
         <thead><tr><th>Fecha</th><th>Cliente</th><th>Monto Pendiente</th><th>Estado</th><th>Acción</th></tr></thead>
         <tbody id="cambiosBody"><tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr></tbody>
+        <tfoot>
+          <tr style="font-weight:800; background:var(--primary-light);">
+            <td colspan="2" style="text-align:right; padding:10px 12px;">Total Pendiente:</td>
+            <td colspan="3" id="cambios_total_pendiente" style="color:var(--danger-color); font-size:1.05rem; padding:10px 12px;">$0.00</td>
+          </tr>
+        </tfoot>
       </table>
+    </div>
+
+    <div style="margin-top:1.8rem;">
+      <button class="btn secondary-btn" id="btnToggleHistoricoCambios" onclick="toggleHistoricoCambios()"><i class="fas fa-history"></i> Ver Histórico de Cambios</button>
+    </div>
+
+    <div id="historicoCambiosContainer" class="hidden">
+      <h3 style="margin:1.8rem 0 1rem;"><i class="fas fa-history"></i> Histórico de Cambios</h3>
+      <p class="text-muted" style="margin-top:-0.6rem; margin-bottom:1rem;">Incluye tanto los cambios faltantes (generados) como los ya regresados (entregados, total o parcialmente). Los pendientes de hoy siempre aparecen primero arriba; este filtro solo controla el histórico de abajo.</p>
+      <div class="form-grid" style="margin-bottom: 1rem; align-items: center;">
+        <div class="form-group" style="margin:0;">
+          <label>Filtrar por período:</label>
+          <select id="cambios_filtro_periodo" onchange="aplicarFiltroCambiosHistorial()">
+            <option value="hoy" selected>Hoy</option>
+            <option value="semana">Esta semana</option>
+            <option value="mes">Este mes</option>
+            <option value="anio">Este año</option>
+            <option value="todo">Todos los tiempos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:1rem;">
+        <div class="summary-card" style="margin:0;">
+          <div class="text-muted" style="font-weight:bold; text-transform:uppercase; font-size:0.78rem;">Cambios Regresados (período)</div>
+          <h3 id="cambios_hist_total_entregado" style="font-size:1.5rem;">$0.00</h3>
+        </div>
+        <div class="summary-card" style="margin:0; background:#fdf2f2; border-color:var(--danger-color);">
+          <div class="text-muted" style="font-weight:bold; text-transform:uppercase; font-size:0.78rem;">Cambios Faltantes (período)</div>
+          <h3 id="cambios_hist_total_generado" style="font-size:1.5rem; color:var(--danger-color);">$0.00</h3>
+        </div>
+      </div>
+
+      <div class="data-table-container">
+        <table class="data-table">
+          <thead><tr><th>Fecha</th><th>Cliente</th><th>Movimiento</th><th>Monto</th><th>Usuario</th></tr></thead>
+          <tbody id="cambiosHistorialBody"><tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -384,27 +435,45 @@
   <!-- REPORTES -->
   <section id="reportes" class="content-section">
     <h2><i class="fas fa-chart-line"></i> Reportes Generales</h2>
-    <div class="form-grid" style="margin-bottom: 1rem; align-items: center;">
+    <div class="form-grid" style="margin-bottom: 1rem; align-items: end;">
       <div class="form-group" style="margin:0;">
         <label>Filtrar por período:</label>
         <select id="filtro_periodo" onchange="aplicarFiltroReportes()">
-          <option value="todo">Todos los tiempos</option>
           <option value="hoy" selected>Hoy</option>
           <option value="dia">Día específico</option>
-          <option value="semana">Esta semana</option>
-          <option value="mes">Este mes</option>
-          <option value="anio">Este año</option>
+          <option value="semana">Semana</option>
+          <option value="mes">Mes</option>
+          <option value="anio">Año</option>
+          <option value="todo">Todo</option>
         </select>
       </div>
       <div class="form-group hidden" id="filtro_dia_container" style="margin:0;">
         <label>Seleccionar Fecha:</label>
         <input type="date" id="filtro_fecha" onchange="aplicarFiltroReportes()">
       </div>
+      <div class="form-group" style="margin:0; display:flex; gap:10px;">
+        <button class="btn danger-btn" style="height:50px; white-space:nowrap;" onclick="exportarReportePDF()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+        <button class="btn" style="height:50px; white-space:nowrap; background:var(--success-color); color:white;" onclick="exportarReporteExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+      </div>
     </div>
 
-    <div class="summary-card">
-      <div class="text-muted" style="font-weight: bold; text-transform: uppercase;">Total Recaudado</div>
-      <h3 id="reporte_total_monto">$0.00</h3>
+    <div class="form-grid" style="margin-bottom:1.5rem;">
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" id="reporte_total_label" style="font-weight: bold; text-transform: uppercase; font-size:0.78rem;">Total Recaudado · Hoy</div>
+        <h3 id="reporte_total_monto">$0.00</h3>
+      </div>
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" style="font-weight: bold; text-transform: uppercase; font-size:0.78rem;">Tickets / Ventas</div>
+        <h3 id="reporte_tickets">0</h3>
+      </div>
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" style="font-weight: bold; text-transform: uppercase; font-size:0.78rem;">Promedio por Venta</div>
+        <h3 id="reporte_promedio">$0.00</h3>
+      </div>
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" style="font-weight: bold; text-transform: uppercase; font-size:0.78rem;">Días con Actividad</div>
+        <h3 id="reporte_dias_actividad">0</h3>
+      </div>
     </div>
 
     <div class="data-table-container">
@@ -538,6 +607,7 @@
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="stock_bajo" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> ⚠️ Alerta diaria de stock bajo</label>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="backup_json" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 📅📊 Copia de seguridad JSON (diaria)</label>
         <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="backup_csv" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 📅📊 Copia de seguridad CSV (diaria)</label>
+        <label style="cursor:pointer; display:flex; align-items:center; gap:8px; font-size: 0.95rem;"><input type="checkbox" value="cierre_caja" class="rep-checkbox" style="width:20px; height:20px; margin:0;"> 🧾 Cierre de caja (diario, a la misma hora que el resto)</label>
       </div>
     </div>
     
@@ -581,6 +651,35 @@
   </div>
 </div>
 
+<!-- Modal Ingresar Cambio Pendiente (manual) -->
+<div id="modalIngresarCambio" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalIngresarCambio')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-plus-circle"></i> Ingresar Cambio Pendiente</h3>
+    <p class="text-muted" style="margin-bottom:1rem;">Úsalo para registrar manualmente un vuelto que quedó a deber, sin necesidad de una venta (por ejemplo, un ajuste de caja). Luego podrás entregarlo todo de una vez o en varias partes ("mini cambios").</p>
+    <div class="form-group"><label>Cliente:</label><input type="text" id="cm_cliente" placeholder="Nombre del cliente"></div>
+    <div class="form-group"><label>Monto pendiente ($):</label><input type="number" id="cm_monto" min="0.01" step="0.01" placeholder="0.00"></div>
+    <button class="btn primary-btn" style="width:100%; height:50px; margin-top:10px;" onclick="guardarCambioManual()"><i class="fas fa-save"></i> Guardar Cambio Pendiente</button>
+  </div>
+</div>
+
+<!-- Modal Entregar Cambio (total o parcial / "mini cambio") -->
+<div id="modalEntregarCambio" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalEntregarCambio')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-hand-holding-usd"></i> Entregar Cambio</h3>
+    <p class="text-muted" style="margin-bottom:0.3rem;">Cliente: <b id="ec_cliente_label">—</b></p>
+    <p class="text-muted" style="margin-bottom:1rem;">Pendiente actual: <b id="ec_pendiente_label" style="color:var(--danger-color);">$0.00</b></p>
+    <div class="form-group">
+      <label>Monto a entregar ahora ($):</label>
+      <input type="number" id="ec_monto" min="0.01" step="0.01">
+      <p class="text-muted" style="font-size:0.8rem; margin-top:6px;">Si entregas menos del total pendiente, el resto queda registrado como un nuevo "mini cambio" pendiente para seguir entregando después.</p>
+    </div>
+    <input type="hidden" id="ec_id">
+    <button class="btn success-btn" style="width:100%; height:50px; margin-top:10px; background:var(--success-color); color:white;" onclick="confirmarEntregaCambio()"><i class="fas fa-check"></i> Confirmar Entrega</button>
+  </div>
+</div>
+
 <!-- Modal Probar Envío de Correo -->
 <div id="modalPruebaEnvio" class="modal hidden">
   <div class="modal-content">
@@ -597,6 +696,7 @@
         <option value="stock_bajo">⚠️ Alerta de stock bajo</option>
         <option value="backup_json">📅 Copia de seguridad JSON</option>
         <option value="backup_csv">📊 Copia de seguridad CSV</option>
+        <option value="cierre_caja">🧾 Cierre de caja</option>
       </select>
     </div>
     <input type="hidden" id="prueba_resp_id">
@@ -623,7 +723,11 @@
   let ventaSeleccionadaId = null;
   let categoriasGlobal = [];
   let reportesGlobal = [];
+  let reportesFiltradosActual = [];
+  let reportesResumenActual = { total: 0, tickets: 0, promedio: 0, dias: 0, periodoTexto: 'Hoy' };
   let responsablesGlobal = [];
+  let cambiosGlobal = [];
+  let cambiosMovimientosGlobal = [];
   
   // MODO OFFLINE VARS
   let isOfflineModeEnabled = localStorage.getItem('pos_offline_enabled') === 'true';
@@ -1094,20 +1198,135 @@
     try {
       const res = await fetch(`${SCRIPT_URL}?action=getCambios`).then(r=>r.json());
       if(res.status==='success') {
-        const pendientes = res.data.filter(c => c.estado === 'Pendiente').sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-        if(!pendientes.length) { body.innerHTML='<tr><td colspan="5" class="text-center">No hay cambios pendientes.</td></tr>'; return; }
-        body.innerHTML = pendientes.map(c => `<tr><td>${new Date(c.fecha).toLocaleDateString()}</td><td><b>${c.cliente_nombre}</b></td><td style="color:var(--danger-color); font-weight:bold;">$${parseFloat(c.monto||0).toFixed(2)}</td><td><span style="background:var(--warning-color); padding:4px 8px; border-radius:10px; font-size:0.85rem; font-weight:bold;">Pendiente</span></td><td><button class="btn success-btn" style="background:var(--success-color); color:white; padding:8px 12px;" onclick="marcarPagado('${c.id}')"><i class="fas fa-check"></i> Entregado</button></td></tr>`).join('');
+        cambiosGlobal = res.data;
+        // Los pendientes de hoy (y en general, todos los pendientes) siempre se muestran
+        // primero aquí arriba, ordenados del más reciente al más antiguo.
+        const pendientes = cambiosGlobal.filter(c => c.estado === 'Pendiente').sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+        if(!pendientes.length) {
+          body.innerHTML='<tr><td colspan="5" class="text-center">No hay cambios pendientes.</td></tr>';
+        } else {
+          body.innerHTML = pendientes.map(c => `<tr><td>${new Date(c.fecha).toLocaleDateString()}</td><td><b>${c.cliente_nombre}</b></td><td style="color:var(--danger-color); font-weight:bold;">$${parseFloat(c.monto||0).toFixed(2)}</td><td><span style="background:var(--warning-color); padding:4px 8px; border-radius:10px; font-size:0.85rem; font-weight:bold;">Pendiente</span></td><td><div style="display:flex; gap:6px; flex-wrap:nowrap;"><button class="btn-icon" title="Entregar parte del monto (mini cambio)" style="background:var(--warning-color); color:#000; width:38px; height:38px; min-width:38px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:1rem;" onclick="abrirModalEntregarCambio('${c.id}')"><i class="fas fa-coins"></i></button><button class="btn success-btn" style="background:var(--success-color); color:white; padding:8px 12px; height:38px; white-space:nowrap;" onclick="marcarCambioRapido('${c.id}', '${(c.cliente_nombre||'').toString().replace(/'/g,"\\'")}')"><i class="fas fa-check"></i> Entregado</button></div></td></tr>`).join('');
+        }
+        const totalPendiente = pendientes.reduce((s,c)=> s + (parseFloat(c.monto)||0), 0);
+        document.getElementById('cambios_total_pendiente').textContent = `$${totalPendiente.toFixed(2)}`;
       }
     } catch(e) {}
+    loadCambiosHistorial();
   }
-  async function marcarPagado(id) {
-    if(!confirm('¿Confirmar que se entregó el cambio?')) return;
+
+  // --- INGRESAR CAMBIO MANUAL ---
+  function abrirModalIngresarCambio() {
+    document.getElementById('cm_cliente').value = '';
+    document.getElementById('cm_monto').value = '';
+    abrirModal('modalIngresarCambio');
+  }
+  async function guardarCambioManual() {
+    const cliente = document.getElementById('cm_cliente').value.trim();
+    const monto = parseFloat(document.getElementById('cm_monto').value);
+    if(!cliente) return showToast('Indica el nombre del cliente.', 'error');
+    if(!monto || monto <= 0) return showToast('Indica un monto válido (mayor a 0).', 'error');
+    showSpinner('Guardando...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'agregarCambioManual', cliente_nombre: cliente, monto: monto, usuario:'admin'})}).then(r=>r.json());
+      if(res.status==='success') { showToast('Cambio pendiente agregado.'); cerrarModal('modalIngresarCambio'); loadCambios(); }
+      else showToast(res.message || 'No se pudo guardar el cambio.', 'error');
+    } catch(e) { showToast('Error de red al guardar el cambio.', 'error'); }
+    hideSpinner();
+  }
+
+  // --- ENTREGADO RÁPIDO (botón verde: marca el cambio completo como pagado, sin abrir el modal) ---
+  async function marcarCambioRapido(id, cliente) {
+    if(!confirm(`¿Confirmas que se entregó por completo el cambio pendiente de ${cliente || 'este cliente'}?`)) return;
+    showSpinner('Registrando entrega...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'marcarCambioPagado', id:id, usuario:'admin'})}).then(r=>r.json());
+      if(res.status==='success') { showToast(res.message || 'Cambio marcado como entregado.'); loadCambios(); }
+      else showToast(res.message || 'No se pudo marcar el cambio como entregado.', 'error');
+    } catch(e) { showToast('Error de red al marcar el cambio.', 'error'); }
+    hideSpinner();
+  }
+
+  // --- ENTREGAR CAMBIO (total o parcial / "mini cambio") ---
+  function abrirModalEntregarCambio(id) {
+    const c = cambiosGlobal.find(x => String(x.id) === String(id));
+    if(!c) return;
+    const pendiente = parseFloat(c.monto || 0);
+    document.getElementById('ec_id').value = id;
+    document.getElementById('ec_cliente_label').textContent = c.cliente_nombre || 'N/A';
+    document.getElementById('ec_pendiente_label').textContent = `$${pendiente.toFixed(2)}`;
+    document.getElementById('ec_monto').value = pendiente.toFixed(2);
+    document.getElementById('ec_monto').max = pendiente;
+    abrirModal('modalEntregarCambio');
+  }
+  async function confirmarEntregaCambio() {
+    const id = document.getElementById('ec_id').value;
+    const monto = parseFloat(document.getElementById('ec_monto').value);
+    if(!monto || monto <= 0) return showToast('Indica un monto válido (mayor a 0).', 'error');
     showSpinner('Actualizando...');
     try {
-      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'marcarCambioPagado', id:id})}).then(r=>r.json());
-      if(res.status==='success') { showToast('Cambio entregado.'); loadCambios(); }
-    } catch(e) { showToast('Error','error'); }
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'registrarEntregaCambio', id:id, monto:monto, usuario:'admin'})}).then(r=>r.json());
+      if(res.status==='success') { showToast(res.message || 'Entrega registrada.'); cerrarModal('modalEntregarCambio'); loadCambios(); }
+      else showToast(res.message || 'No se pudo registrar la entrega.', 'error');
+    } catch(e) { showToast('Error de red al registrar la entrega.', 'error'); }
     hideSpinner();
+  }
+
+  // --- MOSTRAR/OCULTAR HISTÓRICO DE CAMBIOS (oculto por defecto hasta que se pida) ---
+  function toggleHistoricoCambios() {
+    const cont = document.getElementById('historicoCambiosContainer');
+    const btn = document.getElementById('btnToggleHistoricoCambios');
+    const estabaVisible = !cont.classList.contains('hidden');
+    cont.classList.toggle('hidden');
+    btn.innerHTML = estabaVisible
+      ? '<i class="fas fa-history"></i> Ver Histórico de Cambios'
+      : '<i class="fas fa-chevron-up"></i> Ocultar Histórico de Cambios';
+  }
+
+  // --- HISTÓRICO DE CAMBIOS (filtro día/semana/mes/año/todo) ---
+  async function loadCambiosHistorial() {
+    const body = document.getElementById('cambiosHistorialBody');
+    body.innerHTML = '<tr><td colspan="5" class="text-center">Cargando...</td></tr>';
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getCambiosMovimientos`).then(r=>r.json());
+      cambiosMovimientosGlobal = (res.status==='success') ? res.data : [];
+    } catch(e) { cambiosMovimientosGlobal = []; }
+    aplicarFiltroCambiosHistorial();
+  }
+
+  function aplicarFiltroCambiosHistorial() {
+    const periodo = document.getElementById('cambios_filtro_periodo').value;
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+
+    const filtrados = cambiosMovimientosGlobal.filter(m => {
+      const d = new Date(m.fecha); d.setHours(0,0,0,0);
+      if(periodo === 'hoy') return d.getTime() === hoy.getTime();
+      if(periodo === 'semana') {
+        const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+        return d >= inicioSemana;
+      }
+      if(periodo === 'mes') return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear();
+      if(periodo === 'anio') return d.getFullYear() === hoy.getFullYear();
+      return true; // "todo"
+    }).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    // Generado = cambio faltante (se generó una deuda); Entrega parcial/total = cambio regresado
+    const ETIQUETAS = {
+      'Generado':         { texto: 'Faltante (generado)', bg: 'var(--warning-color)', color: '#000' },
+      'Entrega parcial':  { texto: 'Regresado (parcial / mini cambio)', bg: 'var(--success-color)', color: '#fff' },
+      'Entrega total':    { texto: 'Regresado (total)', bg: 'var(--success-color)', color: '#fff' }
+    };
+
+    let totalEntregado = 0, totalGenerado = 0;
+    const html = filtrados.map(m => {
+      const monto = parseFloat(m.monto) || 0;
+      if (m.tipo === 'Generado') totalGenerado += monto; else totalEntregado += monto;
+      const etq = ETIQUETAS[m.tipo] || { texto: m.tipo, bg: 'var(--border-color)', color: '#000' };
+      return `<tr><td>${new Date(m.fecha).toLocaleDateString()} ${new Date(m.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><b>${m.cliente_nombre||'N/A'}</b></td><td><span style="background:${etq.bg}; color:${etq.color}; padding:4px 8px; border-radius:10px; font-size:0.78rem; font-weight:bold; white-space:nowrap;">${etq.texto}</span></td><td style="font-weight:bold;">$${monto.toFixed(2)}</td><td>${m.usuario||'—'}</td></tr>`;
+    }).join('');
+
+    document.getElementById('cambiosHistorialBody').innerHTML = html || `<tr><td colspan="5" class="text-center text-muted">No hay movimientos en este período.</td></tr>`;
+    document.getElementById('cambios_hist_total_entregado').textContent = `$${totalEntregado.toFixed(2)}`;
+    document.getElementById('cambios_hist_total_generado').textContent = `$${totalGenerado.toFixed(2)}`;
   }
 
   // --- COMPRAS / REABASTECIMIENTO ---
@@ -1342,7 +1561,86 @@
     }).join('');
 
     document.getElementById('reportesBody').innerHTML = html || `<tr><td colspan="4" class="text-center text-muted">No hay ventas en este período.</td></tr>`;
+
+    // Indicadores adicionales: tickets/ventas, promedio por venta y días con actividad
+    const tickets = filtrados.length;
+    const promedio = tickets ? sum / tickets : 0;
+    const diasConActividad = new Set(filtrados.map(v => new Date(v.fecha).toDateString())).size;
+    const etiquetasPeriodo = { hoy:'Hoy', dia:'Día específico', semana:'Esta semana', mes:'Este mes', anio:'Este año', todo:'Todos los tiempos' };
+    const periodoTexto = etiquetasPeriodo[periodo] || 'Hoy';
+
     document.getElementById('reporte_total_monto').textContent = `$${sum.toFixed(2)}`;
+    document.getElementById('reporte_total_label').textContent = `Total Recaudado · ${periodoTexto}`;
+    document.getElementById('reporte_tickets').textContent = tickets;
+    document.getElementById('reporte_promedio').textContent = `$${promedio.toFixed(2)}`;
+    document.getElementById('reporte_dias_actividad').textContent = diasConActividad;
+
+    // Se guarda lo filtrado y su resumen para que Exportar PDF/Excel usen exactamente lo que se ve en pantalla
+    reportesFiltradosActual = filtrados;
+    reportesResumenActual = { total: sum, tickets, promedio, dias: diasConActividad, periodoTexto };
+  }
+
+  // --- REPORTES: EXPORTAR PDF / EXCEL (siempre según el período filtrado actual) ---
+  function exportarReportePDF() {
+    if(!window.jspdf) return showToast('No se pudo cargar el generador de PDF. Verifica tu conexión a internet.', 'error');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const fechaGen = new Date().toLocaleString();
+    const r = reportesResumenActual;
+
+    doc.setFontSize(16); doc.setTextColor(9, 25, 51);
+    doc.text('Reporte de Ventas — ERP POS LITE', 14, 18);
+    doc.setFontSize(10); doc.setTextColor(120);
+    doc.text(`Período: ${r.periodoTexto}   •   Generado: ${fechaGen}`, 14, 25);
+    doc.setFontSize(11); doc.setTextColor(0);
+    doc.text(`Total recaudado: $${r.total.toFixed(2)}    |    Tickets/Ventas: ${r.tickets}    |    Promedio por venta: $${r.promedio.toFixed(2)}    |    Días con actividad: ${r.dias}`, 14, 33);
+
+    const filas = reportesFiltradosActual.map(v => [
+      `${new Date(v.fecha).toLocaleDateString()} ${new Date(v.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`,
+      v.cliente_nombre || 'N/A',
+      `$${(parseFloat(v.subtotal)||0).toFixed(2)}`,
+      `$${(parseFloat(v.total)||0).toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+      startY: 40,
+      head: [['Fecha', 'Cliente', 'Subtotal', 'Total']],
+      body: filas.length ? filas : [['—', 'Sin ventas en este período', '—', '—']],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [9, 25, 51] }
+    });
+
+    const nombreArchivo = `reporte_ventas_${r.periodoTexto.replace(/\s+/g,'_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  function exportarReporteExcel() {
+    if(!window.XLSX) return showToast('No se pudo cargar el generador de Excel. Verifica tu conexión a internet.', 'error');
+    const r = reportesResumenActual;
+
+    const datosVentas = reportesFiltradosActual.map(v => ({
+      Fecha: new Date(v.fecha).toLocaleDateString(),
+      Hora: new Date(v.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      Cliente: v.cliente_nombre || 'N/A',
+      Subtotal: parseFloat(v.subtotal)||0,
+      Total: parseFloat(v.total)||0
+    }));
+    const datosResumen = [
+      { Indicador: 'Período', Valor: r.periodoTexto },
+      { Indicador: 'Total recaudado', Valor: Number(r.total.toFixed(2)) },
+      { Indicador: 'Tickets / Ventas', Valor: r.tickets },
+      { Indicador: 'Promedio por venta', Valor: Number(r.promedio.toFixed(2)) },
+      { Indicador: 'Días con actividad', Valor: r.dias }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const wsResumen = XLSX.utils.json_to_sheet(datosResumen);
+    const wsVentas = XLSX.utils.json_to_sheet(datosVentas.length ? datosVentas : [{Fecha:'',Hora:'',Cliente:'Sin ventas en este período',Subtotal:'',Total:''}]);
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+    XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas');
+
+    const nombreArchivo = `reporte_ventas_${r.periodoTexto.replace(/\s+/g,'_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, nombreArchivo);
   }
 
   // --- DETALLE DE VENTA (clic en una fila de Reportes) ---
