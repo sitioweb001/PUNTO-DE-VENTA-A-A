@@ -147,6 +147,8 @@
     .stock-num-critico { color: var(--danger-color); font-weight: 800; }
     .stock-num-bajo { color: #d99400; font-weight: 800; }
     .btn-motivo-selected { background: var(--primary-color) !important; color: white !important; border-color: var(--primary-color) !important; }
+    .table-compact { min-width: 100% !important; }
+    .table-compact th, .table-compact td { padding: 8px 8px !important; font-size: 0.85rem; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -162,6 +164,7 @@
   <div class="logo"><i class="fas fa-store"></i> MI NEGOCIO</div>
   <nav class="sidebar-nav">
     <a href="#" data-section="ventas" class="active"><i class="fas fa-cash-register"></i> Punto de Venta</a>
+    <a href="#" data-section="jornadas"><i class="fas fa-suitcase"></i> Jornadas</a>
     <a href="#" data-section="cambios"><i class="fas fa-hand-holding-usd"></i> Cambios Pend.</a>
     <a href="#" data-section="compras"><i class="fas fa-truck-loading"></i> Compras / Gastos</a>
     <a href="#" data-section="inventario"><i class="fas fa-boxes"></i> Inventario</a>
@@ -225,11 +228,32 @@
           <div class="form-group"><label style="color:var(--danger-color);">Cambio / Vuelto:</label><input type="text" id="v_cambio" class="input-calculo" readonly value="$0.00" style="color:var(--danger-color); background: #fdf2f2 !important;"></div>
           
           <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem;">
-            <button class="btn primary-btn" style="width: 100%; height: 55px; font-size: 1.05rem; white-space: nowrap;" onclick="finalizarVenta(false)"><i class="fas fa-check-circle"></i> Registrar Cobro Exitoso</button>
-            <button class="btn warning-btn" style="width: 100%; height: 50px; font-size: 1rem; white-space: nowrap;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
+            <button id="btnCobroExitoso" class="btn primary-btn" style="width: 100%; height: 55px; font-size: 1.05rem; white-space: nowrap;" onclick="finalizarVenta(false)"><i class="fas fa-check-circle"></i> Registrar Cobro Exitoso</button>
+            <button id="btnQuedaPendienteVenta" class="btn warning-btn" style="width: 100%; height: 50px; font-size: 1rem; white-space: nowrap;" onclick="finalizarVenta(true)"><i class="fas fa-clock"></i> QUEDA PENDIENTE</button>
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- HISTORIAL DE JORNADAS -->
+  <section id="jornadas" class="content-section">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 1rem;">
+      <h2 style="margin:0;"><i class="fas fa-suitcase"></i> Historial de Jornadas</h2>
+    </div>
+    <p class="text-muted" style="margin-top:-0.6rem; margin-bottom:1rem;">Cada Jornada es un "Stock de Maleta" temporal: se carga desde el inventario global al iniciar, se vende únicamente desde ahí, y el sobrante regresa automáticamente al inventario global al cerrarla.</p>
+
+    <!-- Mismo indicador de estado de Jornada que aparece en Punto de Venta -->
+    <div id="jornadaStatusCardHistorial" style="background:var(--bg-card); border:2px solid var(--border-color); border-radius:var(--radius-lg); padding:1rem 1.25rem; margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div id="jornadaStatusInfoHistorial" style="font-weight:700;">Cargando estado de jornada...</div>
+      <div id="jornadaStatusActionsHistorial"></div>
+    </div>
+
+    <div class="data-table-container">
+      <table class="data-table">
+        <thead><tr><th>Fecha</th><th>Hora Inicio</th><th>Hora Cierre</th><th>Usuario</th><th>Estado</th><th>Valorado $</th><th>Ventas</th><th>Ganancia</th><th>Acción</th></tr></thead>
+        <tbody id="jornadasHistorialBody"><tr><td colspan="9" class="text-center text-muted">Cargando...</td></tr></tbody>
+      </table>
     </div>
   </section>
 
@@ -450,6 +474,10 @@
       <div class="form-group hidden" id="filtro_dia_container" style="margin:0;">
         <label>Seleccionar Fecha:</label>
         <input type="date" id="filtro_fecha" onchange="aplicarFiltroReportes()">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Buscar por cliente:</label>
+        <input type="text" id="filtro_cliente" placeholder="🔎 Nombre del cliente..." oninput="aplicarFiltroReportes()">
       </div>
       <div class="form-group" style="margin:0; display:flex; gap:10px;">
         <button class="btn danger-btn" style="height:50px; white-space:nowrap;" onclick="exportarReportePDF()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
@@ -752,6 +780,62 @@
   </div>
 </div>
 
+<!-- Modal Iniciar Jornada -->
+<div id="modalIniciarJornada" class="modal hidden">
+  <div class="modal-content" style="max-width:600px;">
+    <button class="modal-close" onclick="cerrarModal('modalIniciarJornada')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 0.5rem;"><i class="fas fa-play-circle"></i> Iniciar Jornada</h3>
+    <p class="text-muted" style="margin-bottom:1rem;">Indica cuánto llevarás de cada producto. Esa cantidad se descontará de inmediato del inventario global y pasará al Stock de Jornada, que será el único que se pueda vender mientras la jornada esté activa.</p>
+    <div class="form-group"><input type="text" id="ij_buscar" placeholder="🔎 Buscar producto..." oninput="renderListaIniciarJornada()"></div>
+    <div id="iniciarJornadaLista" style="max-height:360px; overflow-y:auto; border:1px solid var(--border-color); border-radius:var(--radius); padding:0.5rem;"></div>
+    <button class="btn primary-btn" style="width:100%; height:50px; margin-top:1rem;" onclick="confirmarIniciarJornada()"><i class="fas fa-check-circle"></i> Confirmar e Iniciar Jornada</button>
+  </div>
+</div>
+
+<!-- Modal Resumen de Cierre de Jornada -->
+<div id="modalResumenJornada" class="modal hidden">
+  <div class="modal-content" style="max-width:960px;">
+    <button class="modal-close" onclick="cerrarModal('modalResumenJornada')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-flag-checkered"></i> Cierre de Jornada</h3>
+    <div style="font-size:0.95rem; line-height:1.9; margin-bottom:1rem;">
+      <div><b>Fecha:</b> <span id="rj_fecha">—</span></div>
+      <div><b>Hora Inicio:</b> <span id="rj_hora_inicio">—</span></div>
+      <div><b>Hora Fin:</b> <span id="rj_hora_fin">—</span></div>
+    </div>
+    <div class="form-grid" style="margin-bottom:1rem;">
+      <div class="summary-card" style="margin:0;"><div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Cargados</div><h3 id="rj_cargados">0</h3></div>
+      <div class="summary-card" style="margin:0;"><div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Vendidos</div><h3 id="rj_vendidos">0</h3></div>
+      <div class="summary-card" style="margin:0;"><div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Devueltos</div><h3 id="rj_devueltos">0</h3></div>
+    </div>
+    <div class="form-grid" style="margin-bottom:1rem;">
+      <div class="summary-card" style="margin:0; background:rgba(40,167,69,0.12); border-color:var(--success-color);"><div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Ventas Totales</div><h3 id="rj_ventas" style="color:var(--success-color);">$0.00</h3></div>
+      <div class="summary-card" style="margin:0; background:rgba(40,167,69,0.12); border-color:var(--success-color);"><div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Ganancia</div><h3 id="rj_ganancia" style="color:var(--success-color);">$0.00</h3></div>
+    </div>
+    <div class="data-table-container" style="margin-bottom:1rem;">
+      <table class="data-table table-compact">
+        <thead><tr><th>Producto</th><th>Cargado</th><th>Vendido</th><th>Devuelto</th><th>P.Venta</th><th>Ingresos</th><th>Ganancia</th></tr></thead>
+        <tbody id="rj_detalle_body"></tbody>
+      </table>
+    </div>
+    <button class="btn danger-btn" style="width:100%; height:50px;" onclick="imprimirResumenJornadaPDF()"><i class="fas fa-file-pdf"></i> Imprimir Cierre en PDF</button>
+  </div>
+</div>
+
+<!-- Modal Detalle de Jornada (desde Historial) -->
+<div id="modalDetalleJornada" class="modal hidden">
+  <div class="modal-content" style="max-width:960px;">
+    <button class="modal-close" onclick="cerrarModal('modalDetalleJornada')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 0.3rem;"><i class="fas fa-list"></i> Detalle de Jornada</h3>
+    <p class="text-muted" id="dj_titulo_info" style="margin-bottom:1rem;"></p>
+    <div class="data-table-container">
+      <table class="data-table table-compact">
+        <thead><tr><th>Producto</th><th>Cargado</th><th>Vendido</th><th>Devuelto</th><th>P.Venta</th><th>Ingresos</th><th>Ganancia</th></tr></thead>
+        <tbody id="detalleJornadaBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
   // URL DEL SCRIPT
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdv3CQlgdo_UX1cGbAeFm6CWQxGbqraUBSH_quHKW0XQ5oSJ-drQrbUNtM60VNv6xZ/exec";
@@ -766,6 +850,12 @@
   let responsablesGlobal = [];
   let cambiosGlobal = [];
   let cambiosMovimientosGlobal = [];
+
+  // JORNADAS DE VENTA (Stock Temporal / Stock de Maleta)
+  let jornadaActivaGlobal = null;      // {id, fecha_inicio, hora_inicio, usuario, estado, ...} o null si no hay jornada activa
+  let jornadaDetalleGlobal = [];       // detalle por producto de la jornada activa: [{producto_id, cantidad_cargada, cantidad_vendida, ...}]
+  let historialJornadasGlobal = [];
+  let resumenJornadaActual = null;     // último resumen de cierre (para el botón "Imprimir PDF")
   
   // MODO OFFLINE VARS
   let isOfflineModeEnabled = localStorage.getItem('pos_offline_enabled') === 'true';
@@ -833,6 +923,8 @@
     document.getElementById('sidebarOverlay').classList.remove('active'); // Cerrar siempre
 
     if(id==='inventario'||id==='ventas') loadInventario();
+    if(id==='ventas'||id==='jornadas') loadJornadaActiva();
+    if(id==='jornadas') loadHistorialJornadas();
     if(id==='cambios') loadCambios();
     if(id==='compras') loadCompras();
     if(id==='reportes') loadReportes();
@@ -894,6 +986,7 @@
         actualizarSelectCategorias();
         renderCategorias();
       }
+      await loadJornadaActiva();
       await loadInventario();
     } catch(e) { 
       // Si falla, no cortamos si está modo offline
@@ -938,25 +1031,282 @@
     }
   }
 
+  // --- JORNADAS DE VENTA (Stock Temporal / Stock de Maleta) ---
+  // A partir de esta actualización, el POS SIEMPRE vende desde el Stock de
+  // Jornada (nunca directamente del inventario global). Estas funciones
+  // manejan el estado de la jornada activa, su indicador visual, el modal
+  // para iniciarla, el cierre con su resumen imprimible, y el historial.
+
+  async function loadJornadaActiva() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getJornadaActiva`).then(r=>r.json());
+      if(res.status==='success') {
+        jornadaActivaGlobal = res.data.jornada;
+        jornadaDetalleGlobal = res.data.detalle || [];
+        if(isOfflineModeEnabled) localStorage.setItem('pos_jornada_cache', JSON.stringify({jornada: jornadaActivaGlobal, detalle: jornadaDetalleGlobal}));
+      }
+    } catch(e) {
+      if(isOfflineModeEnabled) {
+        const cache = localStorage.getItem('pos_jornada_cache');
+        if(cache) {
+          const parsed = JSON.parse(cache);
+          jornadaActivaGlobal = parsed.jornada;
+          jornadaDetalleGlobal = parsed.detalle || [];
+        }
+      }
+    }
+    renderJornadaStatus();
+    renderGridPOS();
+  }
+
+  // Stock disponible EN LA JORNADA ACTIVA para un producto (cargado - vendido). 0 si no está cargado o no hay jornada.
+  function stockDisponibleJornada(productoId) {
+    const d = jornadaDetalleGlobal.find(x => x.producto_id === productoId);
+    if(!d) return 0;
+    return Math.max(0, (parseInt(d.cantidad_cargada)||0) - (parseInt(d.cantidad_vendida)||0));
+  }
+  function estadoStockJornada(stock) {
+    if (stock <= 0) return { clase: 'critico' };
+    if (stock <= 5) return { clase: 'bajo' };
+    return { clase: 'ok' };
+  }
+
+  function renderJornadaStatus() {
+    const infoHist = document.getElementById('jornadaStatusInfoHistorial');
+    const actionsHist = document.getElementById('jornadaStatusActionsHistorial');
+    const btnCobro = document.getElementById('btnCobroExitoso');
+    const btnPendiente = document.getElementById('btnQuedaPendienteVenta');
+
+    let infoHtml, actionsHtml;
+    if (jornadaActivaGlobal && jornadaActivaGlobal.estado === 'Activa') {
+      const cargados = jornadaDetalleGlobal.reduce((s,d)=>s+(parseInt(d.cantidad_cargada)||0),0);
+      const vendidos = jornadaDetalleGlobal.reduce((s,d)=>s+(parseInt(d.cantidad_vendida)||0),0);
+      const restantes = cargados - vendidos;
+      const horaInicio = jornadaActivaGlobal.hora_inicio ? new Date(jornadaActivaGlobal.hora_inicio).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+      infoHtml = `🟢 <b>Jornada Activa</b> — Inicio: ${horaInicio} &nbsp;|&nbsp; Cargados: <b>${cargados}</b> &nbsp;|&nbsp; Vendidos: <b>${vendidos}</b> &nbsp;|&nbsp; Restantes: <b>${restantes}</b>`;
+      actionsHtml = `<button class="btn danger-btn" onclick="cerrarJornadaActual()"><i class="fas fa-stop-circle"></i> Cerrar Jornada</button>`;
+      if(btnCobro) btnCobro.disabled = false;
+      if(btnPendiente) btnPendiente.disabled = false;
+    } else {
+      infoHtml = `🔴 <b>Jornada Cerrada</b> — Inicia una jornada para poder vender.`;
+      actionsHtml = `<button class="btn primary-btn" onclick="abrirModalIniciarJornada()"><i class="fas fa-play-circle"></i> Iniciar Jornada</button>`;
+      if(btnCobro) btnCobro.disabled = true;
+      if(btnPendiente) btnPendiente.disabled = true;
+    }
+
+    if(infoHist) infoHist.innerHTML = infoHtml;
+    if(actionsHist) actionsHist.innerHTML = actionsHtml;
+  }
+
+  // -- Modal Iniciar Jornada --
+  function abrirModalIniciarJornada() {
+    if (jornadaActivaGlobal && jornadaActivaGlobal.estado === 'Activa') return showToast('Ya existe una jornada activa. Ciérrala antes de iniciar otra.', 'warning');
+    if (!inventarioGlobal.length) return showToast('Aún no hay productos en el inventario para cargar a una jornada.', 'error');
+    document.getElementById('ij_buscar').value = '';
+    renderListaIniciarJornada();
+    abrirModal('modalIniciarJornada');
+  }
+
+  function renderListaIniciarJornada() {
+    const q = document.getElementById('ij_buscar').value.toLowerCase();
+    const cont = document.getElementById('iniciarJornadaLista');
+    const filtrados = inventarioGlobal.filter(p => p.nombre.toLowerCase().includes(q));
+    if(!filtrados.length) { cont.innerHTML = '<p class="text-muted text-center" style="padding:1rem;">No hay productos.</p>'; return; }
+    cont.innerHTML = filtrados.map(p => {
+      const stock = parseInt(p.stock) || 0;
+      const inputPrevio = document.getElementById(`ij_cant_${p.id}`);
+      const valorPrevio = inputPrevio ? inputPrevio.value : '';
+      return `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 6px; border-bottom:1px solid var(--bg-body);">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${p.nombre}</div>
+          <div class="text-muted" style="font-size:0.82rem;">Stock bodega: ${stock}</div>
+        </div>
+        <input type="number" id="ij_cant_${p.id}" data-max="${stock}" min="0" max="${stock}" placeholder="0" value="${valorPrevio}" style="width:90px; height:42px; padding:8px; border:2px solid var(--border-color); border-radius:6px; text-align:center;">
+      </div>`;
+    }).join('');
+  }
+
+  async function confirmarIniciarJornada() {
+    const inputs = document.querySelectorAll('#iniciarJornadaLista input[type="number"]');
+    const productos = [];
+    for (const inp of inputs) {
+      const cantidad = parseInt(inp.value) || 0;
+      if (cantidad <= 0) continue;
+      const max = parseInt(inp.dataset.max) || 0;
+      const productoId = inp.id.replace('ij_cant_', '');
+      if (cantidad > max) {
+        const p = inventarioGlobal.find(x => x.id === productoId);
+        return showToast(`La cantidad a llevar de "${p ? p.nombre : productoId}" no puede superar el stock en bodega (${max}).`, 'error');
+      }
+      productos.push({ producto_id: productoId, cantidad });
+    }
+    if (!productos.length) return showToast('Indica al menos una cantidad a llevar.', 'error');
+
+    showSpinner('Iniciando jornada...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'iniciarJornada', productos, usuario:'admin'})}).then(r=>r.json());
+      if (res.status === 'success') {
+        showToast(res.message || 'Jornada iniciada.');
+        cerrarModal('modalIniciarJornada');
+        await loadJornadaActiva();
+        await loadInventario();
+      } else showToast(res.message || 'No se pudo iniciar la jornada.', 'error');
+    } catch(e) { showToast('Error de red al iniciar la jornada.', 'error'); }
+    hideSpinner();
+  }
+
+  // -- Cerrar jornada + resumen imprimible --
+  async function cerrarJornadaActual() {
+    if (!jornadaActivaGlobal) return;
+    if (!confirm('¿Confirmas cerrar la jornada actual? El stock sobrante regresará automáticamente al inventario global y ya no se podrá vender hasta iniciar una nueva jornada.')) return;
+    showSpinner('Cerrando jornada...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'cerrarJornada', id: jornadaActivaGlobal.id, usuario:'admin'})}).then(r=>r.json());
+      if (res.status === 'success') {
+        showToast(res.message || 'Jornada cerrada.');
+        const resumen = res.resumen;
+        await loadJornadaActiva();
+        await loadInventario();
+        mostrarResumenJornada(resumen);
+      } else showToast(res.message || 'No se pudo cerrar la jornada.', 'error');
+    } catch(e) { showToast('Error de red al cerrar la jornada.', 'error'); }
+    hideSpinner();
+  }
+
+  function mostrarResumenJornada(resumen) {
+    if (!resumen) return;
+    resumenJornadaActual = resumen;
+    const fechaIni = resumen.fecha_inicio ? new Date(resumen.fecha_inicio) : null;
+    const fechaFin = resumen.fecha_fin ? new Date(resumen.fecha_fin) : null;
+    document.getElementById('rj_fecha').textContent = fechaIni ? fechaIni.toLocaleDateString() : '—';
+    document.getElementById('rj_hora_inicio').textContent = fechaIni ? fechaIni.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+    document.getElementById('rj_hora_fin').textContent = fechaFin ? fechaFin.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+    document.getElementById('rj_cargados').textContent = resumen.productos_cargados;
+    document.getElementById('rj_vendidos').textContent = resumen.productos_vendidos;
+    document.getElementById('rj_devueltos').textContent = resumen.productos_devueltos;
+    document.getElementById('rj_ventas').textContent = `$${(resumen.ventas_totales||0).toFixed(2)}`;
+    document.getElementById('rj_ganancia').textContent = `$${(resumen.ganancia||0).toFixed(2)}`;
+    document.getElementById('rj_detalle_body').innerHTML = (resumen.detalle||[]).map(d => `
+      <tr>
+        <td><b>${d.producto_nombre}</b></td><td>${d.cantidad_cargada}</td><td>${d.cantidad_vendida}</td><td>${d.cantidad_devuelta}</td>
+        <td>$${(d.precio_venta||0).toFixed(2)}</td><td>$${(d.ingresos||0).toFixed(2)}</td><td style="color:var(--success-color); font-weight:bold;">$${(d.ganancia||0).toFixed(2)}</td>
+      </tr>`).join('') || `<tr><td colspan="7" class="text-center text-muted">Sin productos en esta jornada.</td></tr>`;
+    abrirModal('modalResumenJornada');
+  }
+
+  function imprimirResumenJornadaPDF() {
+    if (!resumenJornadaActual) return;
+    if (!window.jspdf) return showToast('No se pudo cargar el generador de PDF. Verifica tu conexión a internet.', 'error');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const r = resumenJornadaActual;
+    const fechaIni = r.fecha_inicio ? new Date(r.fecha_inicio) : null;
+    const fechaFin = r.fecha_fin ? new Date(r.fecha_fin) : null;
+
+    doc.setFontSize(16); doc.setTextColor(9, 25, 51);
+    doc.text('Cierre de Jornada — ERP POS LITE', 14, 18);
+    doc.setFontSize(10); doc.setTextColor(120);
+    doc.text(`Fecha: ${fechaIni ? fechaIni.toLocaleDateString() : '—'}   •   Inicio: ${fechaIni ? fechaIni.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—'}   •   Fin: ${fechaFin ? fechaFin.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—'}`, 14, 25);
+    doc.setFontSize(11); doc.setTextColor(0);
+    doc.text(`Cargados: ${r.productos_cargados}   |   Vendidos: ${r.productos_vendidos}   |   Devueltos: ${r.productos_devueltos}   |   Ventas: $${(r.ventas_totales||0).toFixed(2)}   |   Ganancia: $${(r.ganancia||0).toFixed(2)}`, 14, 33);
+
+    const filas = (r.detalle||[]).map(d => [d.producto_nombre, d.cantidad_cargada, d.cantidad_vendida, d.cantidad_devuelta, `$${(d.precio_venta||0).toFixed(2)}`, `$${(d.ingresos||0).toFixed(2)}`, `$${(d.ganancia||0).toFixed(2)}`]);
+
+    doc.autoTable({
+      startY: 40,
+      head: [['Producto','Cargado','Vendido','Devuelto','P. Venta','Ingresos','Ganancia']],
+      body: filas.length ? filas : [['—','—','—','—','—','—','—']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [9, 25, 51] }
+    });
+
+    doc.save(`cierre_jornada_${new Date().toISOString().split('T')[0]}.pdf`);
+  }
+
+  // -- Historial de Jornadas --
+  async function loadHistorialJornadas() {
+    const body = document.getElementById('jornadasHistorialBody');
+    body.innerHTML = '<tr><td colspan="9" class="text-center">Cargando...</td></tr>';
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getHistorialJornadas`).then(r=>r.json());
+      historialJornadasGlobal = res.status === 'success' ? res.data : [];
+    } catch(e) { historialJornadasGlobal = []; }
+
+    const ordenados = [...historialJornadasGlobal].sort((a,b) => new Date(b.fecha_inicio) - new Date(a.fecha_inicio));
+    document.getElementById('jornadasHistorialBody').innerHTML = ordenados.map(j => {
+      const fIni = j.fecha_inicio ? new Date(j.fecha_inicio) : null;
+      const hIni = j.hora_inicio ? new Date(j.hora_inicio) : null;
+      const hFin = j.hora_fin ? new Date(j.hora_fin) : null;
+      const estadoTag = j.estado === 'Activa'
+        ? `<span style="color:var(--success-color); font-weight:bold;">🟢 Activa</span>`
+        : `<span style="color:var(--text-muted); font-weight:bold;">🔴 Cerrada</span>`;
+      return `<tr>
+        <td>${fIni ? fIni.toLocaleDateString() : '—'}</td>
+        <td>${hIni ? hIni.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+        <td>${hFin ? hFin.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+        <td>${j.usuario || '—'}</td>
+        <td>${estadoTag}</td>
+        <td style="color:var(--primary-color); font-weight:bold;">$${(parseFloat(j.valorado)||0).toFixed(2)}</td>
+        <td>$${(parseFloat(j.ventas_totales)||0).toFixed(2)}</td>
+        <td style="color:var(--success-color); font-weight:bold;">$${(parseFloat(j.ganancia)||0).toFixed(2)}</td>
+        <td><button class="btn secondary-btn" style="padding:6px 12px; font-size:0.85rem; white-space:nowrap;" onclick="verDetalleJornada('${j.id}')"><i class="fas fa-eye"></i> Ver Detalle</button></td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="9" class="text-center text-muted">Aún no hay jornadas registradas.</td></tr>`;
+  }
+
+  async function verDetalleJornada(id) {
+    showSpinner('Cargando detalle...');
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getDetalleJornada&jornada_id=${id}`).then(r=>r.json());
+      const detalle = res.status === 'success' ? res.data : [];
+      const jornada = historialJornadasGlobal.find(j => String(j.id) === String(id));
+      document.getElementById('dj_titulo_info').textContent = jornada ? `${jornada.usuario || 'N/A'} — ${jornada.fecha_inicio ? new Date(jornada.fecha_inicio).toLocaleDateString() : ''}` : '';
+      document.getElementById('detalleJornadaBody').innerHTML = detalle.map(d => `
+        <tr>
+          <td><b>${d.producto_nombre}</b></td>
+          <td>${d.cantidad_cargada}</td>
+          <td>${d.cantidad_vendida}</td>
+          <td>${d.cantidad_devuelta}</td>
+          <td>$${(parseFloat(d.precio_venta)||0).toFixed(2)}</td>
+          <td>$${((parseInt(d.cantidad_vendida)||0)*(parseFloat(d.precio_venta)||0)).toFixed(2)}</td>
+          <td style="color:var(--success-color); font-weight:bold;">$${(parseFloat(d.ganancia)||0).toFixed(2)}</td>
+        </tr>`).join('') || `<tr><td colspan="7" class="text-center text-muted">Sin detalle.</td></tr>`;
+      abrirModal('modalDetalleJornada');
+    } catch(e) { showToast('Error de red al cargar el detalle.', 'error'); }
+    hideSpinner();
+  }
+
   // --- PUNTO DE VENTA ---
   function renderGridPOS() {
     const q = document.getElementById('v_buscar_grid').value.toLowerCase();
     const cont = document.getElementById('posProductosGrid');
-    const filtrados = inventarioGlobal.filter(p => p.nombre.toLowerCase().includes(q));
-    
-    if(!filtrados.length) { cont.innerHTML='<p class="text-muted text-center" style="grid-column:1/-1; padding:2rem;">No hay productos</p>'; return; }
-    
+
+    if (!jornadaActivaGlobal || jornadaActivaGlobal.estado !== 'Activa') {
+      cont.innerHTML = `<div class="text-center" style="grid-column: 1/-1; padding: 2.5rem 1rem;">
+        <i class="fas fa-suitcase" style="font-size:2.2rem; color:var(--text-muted); margin-bottom:10px; display:block;"></i>
+        <p class="text-muted" style="font-weight:600; margin-bottom:14px;">No hay una Jornada activa. Debes iniciar una jornada para poder vender.</p>
+        <button class="btn primary-btn" onclick="abrirModalIniciarJornada()"><i class="fas fa-play-circle"></i> Iniciar Jornada</button>
+      </div>`;
+      return;
+    }
+
+    const idsCargados = new Set(jornadaDetalleGlobal.map(d => d.producto_id));
+    const filtrados = inventarioGlobal.filter(p => idsCargados.has(p.id) && p.nombre.toLowerCase().includes(q));
+
+    if(!filtrados.length) { cont.innerHTML='<p class="text-muted text-center" style="grid-column:1/-1; padding:2rem;">No hay productos cargados en la jornada actual que coincidan con la búsqueda.</p>'; return; }
+
     cont.innerHTML = filtrados.map(p => {
       const imgHtml = p.imagen_url ? `<img src="${p.imagen_url}" class="producto-img">` : `<div class="producto-img"><i class="fas fa-box"></i></div>`;
-      const e = estadoStock(p);
-      const stock = parseInt(p.stock) || 0;
+      const stock = stockDisponibleJornada(p.id);
+      const e = estadoStockJornada(stock);
       const sinStock = stock <= 0;
       return `
-      <div class="producto-card ${sinStock ? 'sin-stock' : ''}" onclick="addToCart('${p.id}')" title="${sinStock ? 'Sin stock disponible' : ''}">
+      <div class="producto-card ${sinStock ? 'sin-stock' : ''}" onclick="addToCart('${p.id}')" title="${sinStock ? 'Sin stock disponible en esta jornada' : ''}">
         ${imgHtml}
         <div class="producto-info">
           <div class="producto-nombre">${p.nombre}</div>
-          <span class="stock-pill ${e.clase}"><i class="fas fa-cube"></i> Stock: ${stock}</span>
+          <span class="stock-pill ${e.clase}"><i class="fas fa-cube"></i> Jornada: ${stock}</span>
           <div class="producto-precio">$${parseFloat(p.precio_venta||0).toFixed(2)}</div>
         </div>
       </div>`;
@@ -967,11 +1317,12 @@
   function addToCart(id) {
     const p = inventarioGlobal.find(x => x.id === id);
     if(!p) return;
-    const stockDisponible = parseInt(p.stock) || 0;
+    if (!jornadaActivaGlobal || jornadaActivaGlobal.estado !== 'Activa') return showToast('Debes iniciar una jornada antes de vender.', 'error');
+    const stockDisponible = stockDisponibleJornada(id);
     const item = carrito.find(x => x.producto_id === id);
     const enCarrito = item ? item.cantidad : 0;
     if(enCarrito + 1 > stockDisponible) {
-      return showToast(stockDisponible <= 0 ? `Sin stock de ${p.nombre}` : `Stock insuficiente de ${p.nombre}. Disponible: ${stockDisponible}`, 'error');
+      return showToast(stockDisponible <= 0 ? `Sin stock de ${p.nombre} en esta jornada` : `Stock de jornada insuficiente de ${p.nombre}. Disponible: ${stockDisponible}`, 'error');
     }
     if(item) item.cantidad++;
     else carrito.push({ producto_id: p.id, nombre: p.nombre, cantidad: 1, precio_unitario: parseFloat(p.precio_venta), imagen_url: p.imagen_url || '' });
@@ -1004,16 +1355,15 @@
     cont.innerHTML = carrito.map((it, idx) => {
       total += (it.cantidad * it.precio_unitario);
       const imgHtml = it.imagen_url ? `<img src="${it.imagen_url}" class="carrito-item-img">` : `<div class="carrito-item-img-placeholder"><i class="fas fa-box"></i></div>`;
-      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
-      const stockDisponible = prod ? (parseInt(prod.stock) || 0) : it.cantidad; // si no se encuentra, no bloquear
-      const e = prod ? estadoStock(prod) : { clase: 'ok' };
+      const stockDisponible = stockDisponibleJornada(it.producto_id);
+      const e = estadoStockJornada(stockDisponible);
       const alMaximo = it.cantidad >= stockDisponible;
       return `
       <div class="carrito-item">
         ${imgHtml}
         <div style="flex:1; font-size:0.95rem; font-weight:600; padding-right:10px;">
           ${it.nombre}
-          <div class="carrito-item-stock ${e.clase}"><i class="fas fa-cube"></i> Stock disponible: ${stockDisponible}</div>
+          <div class="carrito-item-stock ${e.clase}"><i class="fas fa-cube"></i> Stock en jornada: ${stockDisponible}</div>
         </div>
         <div class="carrito-qty">
           <button onclick="cambiarQty(${idx}, -1)">-</button>
@@ -1034,10 +1384,9 @@
   function cambiarQty(idx, delta) {
     const it = carrito[idx];
     if(delta > 0) {
-      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
-      const stockDisponible = prod ? (parseInt(prod.stock) || 0) : Infinity;
+      const stockDisponible = stockDisponibleJornada(it.producto_id);
       if(it.cantidad + delta > stockDisponible) {
-        showToast(`Stock insuficiente de ${it.nombre}. Disponible: ${stockDisponible}`, 'error');
+        showToast(`Stock de jornada insuficiente de ${it.nombre}. Disponible: ${stockDisponible}`, 'error');
         return;
       }
     }
@@ -1055,7 +1404,8 @@
 
   async function finalizarVenta(quedaPendiente) {
     if(!carrito.length) return showToast('Carrito vacío','warning');
-    
+    if(!jornadaActivaGlobal || jornadaActivaGlobal.estado !== 'Activa') return showToast('Debes iniciar una jornada antes de registrar ventas.', 'error');
+
     // Validación de Cliente OBLIGATORIO
     const clienteInput = document.getElementById('v_cliente');
     if(!clienteInput.value.trim()) {
@@ -1074,17 +1424,15 @@
 
     if (quedaPendiente && cambio <= 0) return showToast('No hay vuelto que dejar pendiente.', 'error');
 
-    // VALIDACIÓN FINAL DE STOCK contra la copia local de inventario (crítico en modo offline,
-    // donde no hay backend que valide en el momento). Suma cantidades por si un producto
-    // apareciera más de una vez, aunque el carrito ya los agrupa.
+    // VALIDACIÓN FINAL DE STOCK contra el Stock de Jornada en caché local (crítico en
+    // modo offline, donde no hay backend que valide en el momento). Suma cantidades por
+    // si un producto apareciera más de una vez, aunque el carrito ya los agrupa.
     const pedidoPorProducto = {};
     for(const it of carrito) pedidoPorProducto[it.producto_id] = (pedidoPorProducto[it.producto_id]||0) + it.cantidad;
     for(const it of carrito) {
-      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
-      if(!prod) continue;
-      const disponible = parseInt(prod.stock) || 0;
+      const disponible = stockDisponibleJornada(it.producto_id);
       if(pedidoPorProducto[it.producto_id] > disponible) {
-        return showToast(`Stock insuficiente de ${it.nombre}. Disponible: ${disponible}, en carrito: ${pedidoPorProducto[it.producto_id]}.`, 'error');
+        return showToast(`Stock de jornada insuficiente de ${it.nombre}. Disponible: ${disponible}, en carrito: ${pedidoPorProducto[it.producto_id]}.`, 'error');
       }
     }
 
@@ -1105,6 +1453,7 @@
         clienteInput.value=''; 
         document.getElementById('v_pago_con').value='';
         document.getElementById('v_cambio').value = '$0.00'; // Reset cambio explícito
+        await loadJornadaActiva();
         await loadInventario();
       } else showToast(res.message, 'error');
     } catch(e) { 
@@ -1123,13 +1472,15 @@
     queue.push(payload);
     localStorage.setItem('pos_ventas_queue', JSON.stringify(queue));
     
-    // Descontar del inventario en cache
+    // Descontar del Stock de Jornada en caché (nunca del inventario global, que no se
+    // toca al vender)
     carrito.forEach(it => {
-      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
-      if(prod) prod.stock = (parseInt(prod.stock) || 0) - it.cantidad;
+      const d = jornadaDetalleGlobal.find(x => x.producto_id === it.producto_id);
+      if(d) d.cantidad_vendida = (parseInt(d.cantidad_vendida) || 0) + it.cantidad;
     });
-    localStorage.setItem('pos_inventario_cache', JSON.stringify(inventarioGlobal));
+    if(isOfflineModeEnabled) localStorage.setItem('pos_jornada_cache', JSON.stringify({jornada: jornadaActivaGlobal, detalle: jornadaDetalleGlobal}));
     renderGridPOS();
+    renderJornadaStatus();
 
     showToast(quedaPendiente ? 'Guardado localmente. Cambio PENDIENTE.' : 'Venta guardada localmente en dispositivo.', 'warning');
     carrito=[]; renderCarrito(); 
@@ -1170,6 +1521,7 @@
     hideSpinner();
     if(restantes.length === 0) {
       showToast('¡Todas las ventas sincronizadas correctamente!', 'success');
+      loadJornadaActiva();
       loadInventario(); 
     } else if(conflictos > 0) {
       showToast(`${conflictos} venta(s) pendiente(s) tienen conflicto de stock y necesitan revisión manual. Toca "Ver pendientes".`, 'error');
@@ -1214,17 +1566,18 @@
     const queue = JSON.parse(localStorage.getItem('pos_ventas_queue') || '[]');
     const venta = queue[idx];
     if(!venta) return;
-    // Devolver el stock que se había descontado localmente al agregar esta venta a la cola
+    // Devolver el Stock de Jornada que se había descontado localmente al agregar esta venta a la cola
     venta.items.forEach(it => {
-      const prod = inventarioGlobal.find(p => p.id === it.producto_id);
-      if(prod) prod.stock = (parseInt(prod.stock) || 0) + it.cantidad;
+      const d = jornadaDetalleGlobal.find(x => x.producto_id === it.producto_id);
+      if(d) d.cantidad_vendida = Math.max(0, (parseInt(d.cantidad_vendida) || 0) - it.cantidad);
     });
-    localStorage.setItem('pos_inventario_cache', JSON.stringify(inventarioGlobal));
+    if(isOfflineModeEnabled) localStorage.setItem('pos_jornada_cache', JSON.stringify({jornada: jornadaActivaGlobal, detalle: jornadaDetalleGlobal}));
     queue.splice(idx, 1);
     localStorage.setItem('pos_ventas_queue', JSON.stringify(queue));
     renderGridPOS();
+    renderJornadaStatus();
     renderSyncBanner();
-    showToast('Venta pendiente descartada y stock devuelto localmente.', 'success');
+    showToast('Venta pendiente descartada y stock de jornada devuelto localmente.', 'success');
     verVentasPendientes();
   }
 
@@ -1590,6 +1943,12 @@
       return true; // "todo"
     });
 
+    // Filtro adicional por nombre de cliente (búsqueda parcial, sin distinguir mayúsculas/minúsculas)
+    const qCliente = (document.getElementById('filtro_cliente').value || '').trim().toLowerCase();
+    if (qCliente) {
+      filtrados = filtrados.filter(v => (v.cliente_nombre || '').toString().toLowerCase().includes(qCliente));
+    }
+
     filtrados.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
 
     let sum = 0;
@@ -1790,6 +2149,7 @@
         cerrarModal('modalDetalleVenta');
         ventaSeleccionadaId = null;
         await loadReportes();
+        await loadJornadaActiva();
         await loadInventario();
       } else showToast(res.message || 'No se pudo anular la venta.', 'error');
     } catch (e) { showToast('Error de red al anular la venta.', 'error'); }
