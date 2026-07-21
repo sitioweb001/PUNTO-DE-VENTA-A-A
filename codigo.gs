@@ -13,17 +13,23 @@ const H_ACTIVIDAD    = "Actividad";
 const H_RESPONSABLES = "Responsables";
 const H_CAMBIOS      = "Cambios"; 
 const H_COMPRAS      = "Compras"; // NUEVA HOJA
+const H_CAMBIOS_MOV  = "CambiosMovimientos"; // NUEVA HOJA — historial de "mini cambios" (entregas parciales/totales)
+const H_JORNADAS     = "Jornadas"; // NUEVA HOJA — Jornadas de Venta (Stock Temporal / Stock de Maleta)
+const H_JORNADA_DET  = "DetalleJornada"; // NUEVA HOJA — detalle por producto de cada Jornada
 
 const HDR = {
   Categorias:    ["id","nombre","emoji","activo"],
   Productos:     ["id","nombre","código","categoría","precio_compra","precio_venta","stock","stock_minimo","imagen_url","favorito","activo","fecha_creado"],
-  Ventas:        ["id","fecha","cliente_nombre","subtotal","descuento","impuesto","total","pago_con","cambio","usuario","estado"],
+  Ventas:        ["id","fecha","cliente_nombre","subtotal","descuento","impuesto","total","pago_con","cambio","usuario","estado","jornada_id"],
   VentaDetalle:  ["id","venta_id","producto_id","producto_nombre","cantidad","precio_unitario","descuento_linea","subtotal_linea"],
   Papelera:      ["id","tipo","datos_originales","fecha_eliminado","eliminado_por"],
   Actividad:     ["id","fecha","usuario","accion","detalle"],
-  Responsables:  ["id","email","nombre","reportes","umbral_venta_grande","activo","ultimo_envio_mensual","ultimo_envio_anual","ultimo_envio_stock","fecha_creado","ultimo_envio_backup"],
-  Cambios:       ["id","venta_id","fecha","cliente_nombre","monto","estado","fecha_pagado","usuario"],
-  Compras:       ["id","producto_id","producto_nombre","cantidad","costo_total","fecha","usuario"] // NUEVA CABECERA
+  Responsables:  ["id","email","nombre","reportes","umbral_venta_grande","activo","ultimo_envio_mensual","ultimo_envio_anual","ultimo_envio_stock","fecha_creado","ultimo_envio_backup","ultimo_envio_cierre"],
+  Cambios:       ["id","venta_id","fecha","cliente_nombre","monto","estado","fecha_pagado","usuario","monto_original"],
+  Compras:       ["id","producto_id","producto_nombre","cantidad","costo_total","fecha","usuario"], // NUEVA CABECERA
+  CambiosMovimientos: ["id","cambio_id","fecha","cliente_nombre","monto","tipo","usuario"], // NUEVA CABECERA — tipo: Generado / Entrega parcial / Entrega total
+  Jornadas:      ["id","fecha_inicio","hora_inicio","fecha_fin","hora_fin","usuario","estado","ventas_totales","productos_vendidos","productos_cargados","productos_devueltos","ganancia","valorado"], // NUEVA CABECERA — "valorado" = valor en $ de lo cargado (cantidad × precio de venta)
+  DetalleJornada: ["id","jornada_id","producto_id","producto_nombre","cantidad_cargada","cantidad_vendida","cantidad_devuelta","precio_compra","precio_venta","ganancia"] // NUEVA CABECERA
 };
 
 function ss()  { return SpreadsheetApp.openById(SPREADSHEET_ID); }
@@ -64,6 +70,22 @@ function crearHoja(nombre) {
   }
 }
 
+// Agrega, al final del encabezado, cualquier columna nueva que todavía no exista
+// en una hoja ya creada anteriormente — sin tocar ni borrar las columnas ni las
+// filas existentes. Así, actualizaciones como esta (que agregan "monto_original"
+// a Cambios, "ultimo_envio_cierre" a Responsables o "jornada_id" a Ventas) no
+// requieren recrear la hoja.
+function asegurarColumnas_(hoja, columnas) {
+  if (!hoja) return;
+  const lastCol = Math.max(1, hoja.getLastColumn());
+  const headers = hoja.getRange(1, 1, 1, lastCol).getValues()[0];
+  let cambiado = false;
+  columnas.forEach(col => {
+    if (headers.indexOf(col) === -1) { headers.push(col); cambiado = true; }
+  });
+  if (cambiado) hoja.getRange(1, 1, 1, headers.length).setValues([headers]);
+}
+
 function doGet(e) {
   const p = e.parameter; let r;
   try {
@@ -74,8 +96,12 @@ function doGet(e) {
       case 'getVentas': r = getVentasConDetalle(); break;
       case 'getPapelera': r = getData(H_PAPELERA); break;
       case 'getCambios': r = getData(H_CAMBIOS); break; 
+      case 'getCambiosMovimientos': r = getData(H_CAMBIOS_MOV); break; // Histórico de mini-cambios (entregas parciales/totales)
       case 'getCompras': r = getData(H_COMPRAS); break; // Obtener historial de compras
       case 'getResponsables': r = getData(H_RESPONSABLES); break;
+      case 'getJornadaActiva': r = getJornadaActivaConDetalle(); break; // Jornada Activa (si existe) + su detalle por producto
+      case 'getHistorialJornadas': r = getData(H_JORNADAS); break; // Historial de Jornadas (todas, activas y cerradas)
+      case 'getDetalleJornada': r = getDetalleJornadaPorId_(p.jornada_id); break; // Detalle producto-por-producto de UNA jornada
       case 'exportarDatos': r = exportarDatosCompletos(); break; // Copia de seguridad manual (descarga)
       default: r = {status:'error', message:`Acción '${p.action}' no válida.`};
     }
@@ -106,6 +132,8 @@ function doPost(e) {
       case 'registrarVenta': r = registrarVenta(req); break;
       case 'anularVenta': r = anularVenta(req); break;
       case 'marcarCambioPagado': r = marcarCambioPagado(req); break;
+      case 'agregarCambioManual': r = agregarCambioManual(req); break; // Ingresar un cambio pendiente manualmente
+      case 'registrarEntregaCambio': r = registrarEntregaCambio(req); break; // Entregar un cambio (total o parcial / "mini cambio")
       case 'registrarCompra': r = registrarCompra(req); break; // Registro de gastos y stock
       case 'agregarResponsable': r = agregarResponsable(req); break;
       case 'editarResponsable': r = editarResponsable(req); break;
@@ -113,6 +141,8 @@ function doPost(e) {
       case 'probarEnvioResponsable': r = probarEnvioResponsable(req); break;
       case 'importarDatos': r = importarDatosCompletos(req); break; // Restaurar copia de seguridad
       case 'enviarBackupAhora': r = enviarBackupManual(); break; // Forzar envío de backup a responsables
+      case 'iniciarJornada': r = iniciarJornada(req); break; // Iniciar una nueva Jornada de Venta (carga Stock de Jornada)
+      case 'cerrarJornada': r = cerrarJornada(req); break; // Cerrar la Jornada activa (devuelve sobrante al inventario global)
       default: r = {status:'error', message:'Acción no reconocida'};
     }
     return resp(r);
@@ -130,39 +160,241 @@ function subirImagenDrive(data) {
   } catch (e) { return { status: 'error', message: 'No se pudo subir la imagen.' }; }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// JORNADAS DE VENTA (Stock Temporal / Stock de Maleta)
+// ═══════════════════════════════════════════════════════════════
+// A partir de esta actualización, TODAS las ventas se descuentan del
+// "Stock de Jornada" (DetalleJornada.cantidad_vendida) y NUNCA directamente
+// del inventario global (Productos.stock). El inventario global solo se
+// mueve en dos momentos: (1) al iniciar una jornada, cuando se "carga" la
+// maleta (se resta del inventario global), y (2) al cerrar la jornada,
+// cuando el sobrante regresa automáticamente al inventario global.
+// ═══════════════════════════════════════════════════════════════
+
+// Devuelve el objeto (formato getData) de la Jornada con estado "Activa", o null si no existe.
+// Nunca puede haber más de una jornada activa al mismo tiempo.
+function obtenerJornadaActiva_() {
+  const data = getData(H_JORNADAS).data || [];
+  return data.find(j => j.estado === 'Activa') || null;
+}
+
+function getJornadaActivaConDetalle() {
+  const jornada = obtenerJornadaActiva_();
+  if (!jornada) return { status:'success', data: { jornada: null, detalle: [] } };
+  const detalle = (getData(H_JORNADA_DET).data || []).filter(d => String(d.jornada_id) === String(jornada.id));
+  return { status:'success', data: { jornada, detalle } };
+}
+
+function getDetalleJornadaPorId_(jornadaId) {
+  if (!jornadaId) return { status:'error', message:'Falta el ID de la jornada.' };
+  const detalleData = getData(H_JORNADA_DET);
+  const detalle = (detalleData.data || []).filter(d => String(d.jornada_id) === String(jornadaId));
+  return { status:'success', data: detalle };
+}
+
+// Inicia una nueva Jornada: valida que no exista otra activa, valida el stock
+// en bodega de cada producto solicitado, crea la Jornada y su DetalleJornada
+// (una fila por producto cargado, con cantidad_vendida/devuelta en 0 y el
+// precio_compra/precio_venta "congelados" al momento de cargar), y descuenta
+// de inmediato esa cantidad del inventario global.
+function iniciarJornada(data) {
+  if (obtenerJornadaActiva_()) {
+    return { status:'error', message:'Ya existe una Jornada activa. Debes cerrarla antes de iniciar una nueva.' };
+  }
+
+  const solicitados = Array.isArray(data.productos) ? data.productos : [];
+  const itemsValidos = solicitados
+    .map(p => ({ producto_id: p.producto_id, cantidad: parseInt(p.cantidad) || 0 }))
+    .filter(p => p.producto_id && p.cantidad > 0);
+
+  if (!itemsValidos.length) {
+    return { status:'error', message:'Debes indicar al menos un producto con una cantidad mayor a 0 para llevar a la jornada.' };
+  }
+
+  const shP = sh(H_PRODUCTOS);
+
+  // Validar TODO antes de escribir nada (igual que registrarVenta), para nunca
+  // dejar una jornada a medias si algún producto no tiene stock suficiente.
+  const filasProducto = {};
+  for (const it of itemsValidos) {
+    const { row, idx } = findRow(shP, it.producto_id);
+    if (!row) return { status:'error', message:'Uno de los productos seleccionados ya no existe.' };
+    if (row[10] === false || row[10] === 'false') return { status:'error', message:`El producto "${row[1]}" fue eliminado del inventario.` };
+    const stockBodega = parseInt(row[6]) || 0;
+    if (it.cantidad > stockBodega) {
+      return { status:'error', message:`Stock insuficiente en bodega de "${row[1]}". Disponible: ${stockBodega}, solicitado: ${it.cantidad}.` };
+    }
+    filasProducto[it.producto_id] = { row, idx };
+  }
+
+  const ahora = new Date();
+  const jornadaId = uid();
+  const shDJ = sh(H_JORNADA_DET);
+  let totalCargado = 0;
+  let totalValorado = 0; // valor en $ de todo lo cargado (cantidad × precio de venta)
+
+  itemsValidos.forEach(it => {
+    const { row, idx } = filasProducto[it.producto_id];
+    const precioCompra = parseFloat(row[4]) || 0;
+    const precioVenta = parseFloat(row[5]) || 0;
+    // id, jornada_id, producto_id, producto_nombre, cantidad_cargada, cantidad_vendida, cantidad_devuelta, precio_compra, precio_venta, ganancia
+    shDJ.appendRow([uid(), jornadaId, it.producto_id, row[1], it.cantidad, 0, 0, precioCompra, precioVenta, 0]);
+    // Descontar de inmediato del inventario global (la maleta se "carga")
+    const stockActual = parseInt(shP.getRange(idx + 1, 7).getValue()) || 0;
+    shP.getRange(idx + 1, 7).setValue(stockActual - it.cantidad);
+    totalCargado += it.cantidad;
+    totalValorado += it.cantidad * precioVenta;
+  });
+
+  const shJ = sh(H_JORNADAS);
+  // id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, usuario, estado, ventas_totales, productos_vendidos, productos_cargados, productos_devueltos, ganancia, valorado
+  shJ.appendRow([jornadaId, ahora, ahora, '', '', data.usuario || 'Sistema', 'Activa', 0, 0, totalCargado, 0, 0, totalValorado]);
+
+  log(data.usuario, 'Jornada Iniciada', `${itemsValidos.length} producto(s), ${totalCargado} unidad(es) cargadas.`);
+
+  return { status:'success', message:'Jornada iniciada con éxito. El stock cargado ya está disponible para la venta.', jornada_id: jornadaId };
+}
+
+// Cierra la Jornada activa: por cada producto de su DetalleJornada calcula lo
+// devuelto (cargado - vendido), lo regresa al inventario global, calcula la
+// ganancia de esa línea, y actualiza los totales de la Jornada. No permite
+// cerrar una jornada que ya está cerrada. Devuelve un resumen completo para
+// mostrar en pantalla e imprimir en PDF.
+function cerrarJornada(data) {
+  const shJ = sh(H_JORNADAS); const shDJ = sh(H_JORNADA_DET); const shP = sh(H_PRODUCTOS);
+  const { row: rowJ, idx: idxJ } = findRow(shJ, data.id);
+  if (!rowJ) return { status:'error', message:'Jornada no encontrada.' };
+  if (String(rowJ[6]) !== 'Activa') return { status:'error', message:'Esta jornada ya fue cerrada anteriormente.' };
+
+  const detVals = shDJ.getDataRange().getValues();
+  let totalCargado = 0, totalVendido = 0, totalDevuelto = 0, montoVendido = 0, gananciaTotal = 0;
+  const detalleResumen = [];
+
+  for (let i = 1; i < detVals.length; i++) {
+    if (String(detVals[i][1]) !== String(data.id)) continue;
+
+    const productoId   = detVals[i][2];
+    const productoNom  = detVals[i][3];
+    const cargada      = parseInt(detVals[i][4]) || 0;
+    const vendida       = parseInt(detVals[i][5]) || 0;
+    const devuelta      = Math.max(0, cargada - vendida);
+    const precioCompra  = parseFloat(detVals[i][7]) || 0;
+    const precioVenta   = parseFloat(detVals[i][8]) || 0;
+    const gananciaLinea = vendida * (precioVenta - precioCompra);
+
+    shDJ.getRange(i + 1, 7).setValue(devuelta);       // cantidad_devuelta
+    shDJ.getRange(i + 1, 10).setValue(gananciaLinea); // ganancia
+
+    // Regresar el sobrante al inventario global
+    if (devuelta > 0) {
+      const { idx: idxP } = findRow(shP, productoId);
+      if (idxP > -1) {
+        const stockActual = parseInt(shP.getRange(idxP + 1, 7).getValue()) || 0;
+        shP.getRange(idxP + 1, 7).setValue(stockActual + devuelta);
+      }
+    }
+
+    totalCargado += cargada; totalVendido += vendida; totalDevuelto += devuelta;
+    montoVendido += vendida * precioVenta; gananciaTotal += gananciaLinea;
+
+    detalleResumen.push({
+      producto_id: productoId, producto_nombre: productoNom,
+      cantidad_cargada: cargada, cantidad_vendida: vendida, cantidad_devuelta: devuelta,
+      precio_venta: precioVenta, ingresos: vendida * precioVenta, ganancia: gananciaLinea
+    });
+  }
+
+  const ahora = new Date();
+  shJ.getRange(idxJ + 1, 4).setValue(ahora);          // fecha_fin
+  shJ.getRange(idxJ + 1, 5).setValue(ahora);          // hora_fin
+  shJ.getRange(idxJ + 1, 7).setValue('Cerrada');      // estado
+  shJ.getRange(idxJ + 1, 8).setValue(montoVendido);   // ventas_totales
+  shJ.getRange(idxJ + 1, 9).setValue(totalVendido);   // productos_vendidos
+  shJ.getRange(idxJ + 1, 10).setValue(totalCargado);  // productos_cargados
+  shJ.getRange(idxJ + 1, 11).setValue(totalDevuelto); // productos_devueltos
+  shJ.getRange(idxJ + 1, 12).setValue(gananciaTotal); // ganancia
+
+  log(data.usuario, 'Jornada Cerrada', `Cargado: ${totalCargado}, Vendido: ${totalVendido}, Devuelto: ${totalDevuelto}, Ventas: $${montoVendido.toFixed(2)}, Ganancia: $${gananciaTotal.toFixed(2)}`);
+
+  return {
+    status:'success',
+    message:'Jornada cerrada con éxito. El stock sobrante fue devuelto al inventario global.',
+    resumen: {
+      id: data.id,
+      fecha_inicio: rowJ[1] ? new Date(rowJ[1]).toISOString() : '',
+      hora_inicio: rowJ[2] ? new Date(rowJ[2]).toISOString() : '',
+      fecha_fin: ahora.toISOString(),
+      hora_fin: ahora.toISOString(),
+      usuario: rowJ[5],
+      productos_cargados: totalCargado,
+      productos_vendidos: totalVendido,
+      productos_devueltos: totalDevuelto,
+      ventas_totales: montoVendido,
+      ganancia: gananciaTotal,
+      detalle: detalleResumen
+    }
+  };
+}
+
 function registrarVenta(data) {
-  const shV = sh(H_VENTAS); const shD = sh(H_VENTA_DET); const shP = sh(H_PRODUCTOS); const shC = sh(H_CAMBIOS);
+  const shV = sh(H_VENTAS); const shD = sh(H_VENTA_DET); const shC = sh(H_CAMBIOS);
+  const shDJ = sh(H_JORNADA_DET);
+
+  // Regla clave de Jornadas: NUNCA se vende directamente del inventario global.
+  // Debe existir una Jornada activa; todas las ventas descuentan del Stock de Jornada.
+  const jornadaActiva = obtenerJornadaActiva_();
+  if (!jornadaActiva) {
+    return { status:'error', message:'No hay una Jornada activa. Debes iniciar una jornada antes de registrar ventas.' };
+  }
+
   let subtotal = 0;
-  // Primero se valida TODO el carrito contra el stock real (incluyendo cantidades repetidas
-  // del mismo producto) antes de escribir nada, para nunca dejar una venta a medias.
+  // Primero se valida TODO el carrito contra el Stock de Jornada real (incluyendo
+  // cantidades repetidas del mismo producto) antes de escribir nada, para nunca
+  // dejar una venta a medias.
   const acumulado = {}; // producto_id -> cantidad total pedida en este carrito
+  const detalleJornadaVals = shDJ.getDataRange().getValues();
+  const filaDetalleJornadaPorProducto = {}; // producto_id -> índice de fila (0-based, alineado con detalleJornadaVals)
+  for (let i = 1; i < detalleJornadaVals.length; i++) {
+    if (String(detalleJornadaVals[i][1]) === String(jornadaActiva.id)) {
+      filaDetalleJornadaPorProducto[String(detalleJornadaVals[i][2])] = i;
+    }
+  }
+
   for (const item of data.items) {
     const cant = parseInt(item.cantidad) || 0;
     if (cant <= 0) return {status:'error', message:`Cantidad inválida para ${item.producto_id}.`};
-    const {row, idx} = findRow(shP, item.producto_id);
-    if (!row) return {status:'error', message:`Producto no encontrado.`};
-    if (row[10] === false || row[10] === 'false') return {status:'error', message:`El producto "${row[1]}" fue eliminado del inventario.`};
+    const filaIdx = filaDetalleJornadaPorProducto[String(item.producto_id)];
+    if (filaIdx === undefined) return {status:'error', message:`Ese producto no fue cargado en la jornada actual, así que no se puede vender.`};
+    const filaDJ = detalleJornadaVals[filaIdx];
+    const nombreProd = filaDJ[3];
     acumulado[item.producto_id] = (acumulado[item.producto_id] || 0) + cant;
-    const stockDisponible = parseInt(row[6]) || 0;
-    if (stockDisponible < acumulado[item.producto_id]) {
-      return {status:'warning', message:`Stock insuficiente de "${row[1]}". Disponible: ${stockDisponible}, solicitado: ${acumulado[item.producto_id]}.`};
+    const cargada = parseInt(filaDJ[4]) || 0;
+    const vendidaPrevia = parseInt(filaDJ[5]) || 0;
+    const disponibleJornada = cargada - vendidaPrevia;
+    if (disponibleJornada < acumulado[item.producto_id]) {
+      return {status:'warning', message:`Stock de jornada insuficiente de "${nombreProd}". Disponible: ${disponibleJornada}, solicitado: ${acumulado[item.producto_id]}.`};
     }
-    item._rowIdx = idx; item._nombre = row[1]; item._subtotal = (parseFloat(item.precio_unitario)*cant);
+    item._rowIdxJornada = filaIdx; item._nombre = nombreProd; item._subtotal = (parseFloat(item.precio_unitario)*cant);
     subtotal += item._subtotal;
   }
   const total = subtotal;
   const ventaId = uid();
   const nombreCliente = data.cliente_nombre && String(data.cliente_nombre).trim() !== '' ? String(data.cliente_nombre).trim() : 'N/A';
 
-  shV.appendRow([ventaId, new Date(), nombreCliente, subtotal, 0, 0, total, data.pago_con||0, data.cambio||0, data.usuario||'Sistema', 'completada']);
-  
+  shV.appendRow([ventaId, new Date(), nombreCliente, subtotal, 0, 0, total, data.pago_con||0, data.cambio||0, data.usuario||'Sistema', 'completada', jornadaActiva.id]);
+
   for (const item of data.items) {
     shD.appendRow([uid(), ventaId, item.producto_id, item._nombre, parseInt(item.cantidad), parseFloat(item.precio_unitario), 0, item._subtotal]);
-    shP.getRange(item._rowIdx+1, 7).setValue((parseInt(shP.getRange(item._rowIdx+1, 7).getValue())||0) - parseInt(item.cantidad));
+    // Descontar del Stock de Jornada — el inventario global NO se toca aquí.
+    const filaSheetIdx = item._rowIdxJornada;
+    const vendidaActual = parseInt(shDJ.getRange(filaSheetIdx + 1, 6).getValue()) || 0;
+    shDJ.getRange(filaSheetIdx + 1, 6).setValue(vendidaActual + parseInt(item.cantidad));
   }
 
   if (data.pendiente && data.cambio > 0) {
-    shC.appendRow([uid(), ventaId, new Date(), nombreCliente, data.cambio, 'Pendiente', '', data.usuario||'Sistema']);
+    const cambioId = uid();
+    shC.appendRow([cambioId, ventaId, new Date(), nombreCliente, data.cambio, 'Pendiente', '', data.usuario||'Sistema', data.cambio]);
+    try { sh(H_CAMBIOS_MOV).appendRow([uid(), cambioId, new Date(), nombreCliente, data.cambio, 'Generado', data.usuario||'Sistema']); } catch(e) {}
   }
 
   try { avisarVentaGrande_(total, nombreCliente, ventaId); } catch(e) {}
@@ -171,14 +403,27 @@ function registrarVenta(data) {
 }
 
 // Anula (elimina) una venta: guarda copia completa + justificación en la Papelera,
-// devuelve al inventario el stock que se había descontado, borra cualquier "cambio
-// pendiente" ligado a esa venta, y elimina la venta de Ventas/VentaDetalle para que
-// deje de contarse en Reportes, Resúmenes y el total recaudado.
+// devuelve el stock que se había descontado (al Stock de Jornada si la jornada de
+// esa venta sigue activa, o al inventario global si no hay jornada asociada o esa
+// jornada ya fue cerrada), borra cualquier "cambio pendiente" ligado a esa venta, y
+// elimina la venta de Ventas/VentaDetalle para que deje de contarse en Reportes,
+// Resúmenes y el total recaudado.
 function anularVenta(data) {
   const shV = sh(H_VENTAS); const shD = sh(H_VENTA_DET); const shP = sh(H_PRODUCTOS); const shPap = sh(H_PAPELERA); const shC = sh(H_CAMBIOS);
+  const shDJ = sh(H_JORNADA_DET);
   const { row: rowV } = findRow(shV, data.id);
   if (!rowV) return { status:'error', message:'Venta no encontrada.' };
   if (!data.motivo || !String(data.motivo).trim()) return { status:'error', message:'Debes indicar un motivo de la anulación.' };
+
+  // ¿A qué Jornada pertenecía esta venta (si a alguna)? La columna jornada_id
+  // se agregó de forma aditiva al final de Ventas, así que puede no existir en
+  // filas muy antiguas — en ese caso se trata igual que antes de esta actualización.
+  const jornadaIdVenta = rowV.length > 11 ? String(rowV[11] || '') : '';
+  let jornadaDestinoActiva = null;
+  if (jornadaIdVenta) {
+    const jornadaData = (getData(H_JORNADAS).data || []).find(j => String(j.id) === jornadaIdVenta);
+    if (jornadaData && jornadaData.estado === 'Activa') jornadaDestinoActiva = jornadaData;
+  }
 
   // Recolectar las líneas de detalle asociadas a esta venta
   const detalleVals = shD.getDataRange().getValues();
@@ -197,14 +442,33 @@ function anularVenta(data) {
     }
   }
 
-  // Devolver el stock vendido a cada producto
-  itemsVenta.forEach(it => {
-    const { idx: idxP } = findRow(shP, it.producto_id);
-    if (idxP > -1) {
-      const stockActual = parseInt(shP.getRange(idxP + 1, 7).getValue()) || 0;
-      shP.getRange(idxP + 1, 7).setValue(stockActual + (parseInt(it.cantidad) || 0));
-    }
-  });
+  // Devolver el stock vendido: si la Jornada de esta venta SIGUE ACTIVA, se
+  // devuelve al Stock de Jornada (se resta de cantidad_vendida, sin tocar el
+  // inventario global, que nunca se tocó al vender). En cualquier otro caso
+  // (venta sin jornada asociada, o cuya jornada ya fue cerrada) se devuelve
+  // directamente al inventario global — mismo comportamiento que antes de
+  // esta actualización.
+  if (jornadaDestinoActiva) {
+    const detJornadaVals = shDJ.getDataRange().getValues();
+    itemsVenta.forEach(it => {
+      for (let i = 1; i < detJornadaVals.length; i++) {
+        if (String(detJornadaVals[i][1]) === jornadaIdVenta && String(detJornadaVals[i][2]) === String(it.producto_id)) {
+          const vendidaActual = parseInt(shDJ.getRange(i + 1, 6).getValue()) || 0;
+          const nuevaVendida = Math.max(0, vendidaActual - (parseInt(it.cantidad) || 0));
+          shDJ.getRange(i + 1, 6).setValue(nuevaVendida);
+          break;
+        }
+      }
+    });
+  } else {
+    itemsVenta.forEach(it => {
+      const { idx: idxP } = findRow(shP, it.producto_id);
+      if (idxP > -1) {
+        const stockActual = parseInt(shP.getRange(idxP + 1, 7).getValue()) || 0;
+        shP.getRange(idxP + 1, 7).setValue(stockActual + (parseInt(it.cantidad) || 0));
+      }
+    });
+  }
 
   // Guardar copia completa (venta + items + motivo) en la Papelera antes de borrar
   const datosOriginales = {
@@ -215,9 +479,20 @@ function anularVenta(data) {
   shPap.appendRow([uid(), 'Venta Anulada', JSON.stringify(datosOriginales), new Date(), data.usuario || 'Sistema']);
 
   // Eliminar cualquier "cambio pendiente" ligado a esta venta, ya no aplica
+  // (y su historial de mini-cambios/entregas, si tenía alguno).
   const cambiosVals = shC.getDataRange().getValues();
+  const idsCambiosABorrar = [];
   for (let i = cambiosVals.length - 1; i >= 1; i--) {
-    if (String(cambiosVals[i][1]) === String(data.id)) shC.deleteRow(i + 1);
+    if (String(cambiosVals[i][1]) === String(data.id)) { idsCambiosABorrar.push(String(cambiosVals[i][0])); shC.deleteRow(i + 1); }
+  }
+  if (idsCambiosABorrar.length) {
+    try {
+      const shCMov = sh(H_CAMBIOS_MOV);
+      const movVals = shCMov.getDataRange().getValues();
+      for (let i = movVals.length - 1; i >= 1; i--) {
+        if (idsCambiosABorrar.indexOf(String(movVals[i][1])) > -1) shCMov.deleteRow(i + 1);
+      }
+    } catch(e) {}
   }
 
   // Eliminar las líneas de detalle (de mayor a menor índice para no desordenar filas)
@@ -229,7 +504,7 @@ function anularVenta(data) {
 
   log(data.usuario, 'Venta Anulada', `Motivo: ${data.motivo}. Cliente: ${rowV[2]}, Total: $${(parseFloat(rowV[6])||0).toFixed(2)}`);
 
-  return { status:'success', message:'Venta eliminada. El stock fue devuelto al inventario.' };
+  return { status:'success', message:'Venta eliminada. El stock fue devuelto correctamente.' };
 }
 
 function registrarCompra(data) {
@@ -255,14 +530,65 @@ function registrarCompra(data) {
   return {status:'success', message:'Compra registrada y stock actualizado con éxito.'};
 }
 
+// Marca un cambio como entregado POR COMPLETO de una sola vez (botón rápido
+// "Entregado" cuando no se necesita hacer una entrega parcial).
 function marcarCambioPagado(data) {
   const hoja = sh(H_CAMBIOS); const {idx, row} = findRow(hoja, data.id);
-  if (idx > -1) {
-    hoja.getRange(idx+1, 6).setValue('Pagado'); 
-    hoja.getRange(idx+1, 7).setValue(new Date().toISOString());
-    return {status: 'success', message: 'Cambio marcado como pagado.'};
+  if (idx < 0) return {status: 'error', message: 'Registro no encontrado.'};
+  if (String(row[5]) !== 'Pendiente') return {status:'error', message:'Este cambio ya fue entregado.'};
+  const pendienteActual = parseFloat(row[4]) || 0;
+  hoja.getRange(idx+1, 5).setValue(0);
+  hoja.getRange(idx+1, 6).setValue('Pagado');
+  hoja.getRange(idx+1, 7).setValue(new Date().toISOString());
+  if (pendienteActual > 0) {
+    try { sh(H_CAMBIOS_MOV).appendRow([uid(), data.id, new Date(), row[3], pendienteActual, 'Entrega total', data.usuario||'Sistema']); } catch(e) {}
   }
-  return {status: 'error', message: 'Registro no encontrado.'};
+  log(data.usuario, 'Cambio Entregado (Total)', `Cliente: ${row[3]}, Entregado: $${pendienteActual.toFixed(2)}`);
+  return {status: 'success', message: 'Cambio marcado como pagado.'};
+}
+
+// Ingresa manualmente un nuevo "cambio pendiente" que no viene ligado a una
+// venta (por ejemplo, un vuelto que se quedó a deber en un ajuste de caja).
+function agregarCambioManual(data) {
+  const cliente = data.cliente_nombre && String(data.cliente_nombre).trim() !== '' ? String(data.cliente_nombre).trim() : '';
+  if (!cliente) return {status:'error', message:'Indica el nombre del cliente.'};
+  const monto = parseFloat(data.monto);
+  if (isNaN(monto) || monto <= 0) return {status:'error', message:'El monto debe ser mayor a 0.'};
+
+  const id = uid();
+  sh(H_CAMBIOS).appendRow([id, '', new Date(), cliente, monto, 'Pendiente', '', data.usuario||'Sistema', monto]);
+  try { sh(H_CAMBIOS_MOV).appendRow([uid(), id, new Date(), cliente, monto, 'Generado', data.usuario||'Sistema']); } catch(e) {}
+  log(data.usuario, 'Cambio Manual Agregado', `Cliente: ${cliente}, Monto: $${monto.toFixed(2)}`);
+  return {status:'success', message:'Cambio pendiente agregado con éxito.'};
+}
+
+// Registra la entrega de un cambio pendiente, ya sea TOTAL o PARCIAL ("mini
+// cambio"). Si el monto entregado es menor al pendiente, el registro sigue
+// "Pendiente" con el monto restante, y queda un "mini cambio" para seguir
+// entregando después; si cubre todo lo pendiente, se marca "Pagado".
+function registrarEntregaCambio(data) {
+  const hoja = sh(H_CAMBIOS); const {row, idx} = findRow(hoja, data.id);
+  if (!row) return {status:'error', message:'Registro no encontrado.'};
+  if (String(row[5]) !== 'Pendiente') return {status:'error', message:'Este cambio ya fue entregado por completo.'};
+
+  const pendienteActual = parseFloat(row[4]) || 0;
+  const montoEntrega = parseFloat(data.monto);
+  if (isNaN(montoEntrega) || montoEntrega <= 0) return {status:'error', message:'Indica un monto de entrega válido (mayor a 0).'};
+  if (montoEntrega > pendienteActual + 0.009) return {status:'error', message:`El monto no puede superar lo pendiente ($${pendienteActual.toFixed(2)}).`};
+
+  const nuevoPendiente = Math.max(0, pendienteActual - montoEntrega);
+  const esTotal = nuevoPendiente <= 0.009;
+
+  hoja.getRange(idx+1, 5).setValue(esTotal ? 0 : nuevoPendiente);
+  if (esTotal) {
+    hoja.getRange(idx+1, 6).setValue('Pagado');
+    hoja.getRange(idx+1, 7).setValue(new Date().toISOString());
+  }
+
+  try { sh(H_CAMBIOS_MOV).appendRow([uid(), data.id, new Date(), row[3], montoEntrega, esTotal ? 'Entrega total' : 'Entrega parcial', data.usuario||'Sistema']); } catch(e) {}
+  log(data.usuario, esTotal ? 'Cambio Entregado (Total)' : 'Cambio Entregado (Parcial)', `Cliente: ${row[3]}, Entregado: $${montoEntrega.toFixed(2)}, Restante: $${(esTotal?0:nuevoPendiente).toFixed(2)}`);
+
+  return {status:'success', message: esTotal ? 'Cambio entregado por completo.' : `Entrega parcial (mini cambio) registrada. Queda pendiente $${nuevoPendiente.toFixed(2)}.`};
 }
 
 function editarProducto(data) {
@@ -309,7 +635,7 @@ function eliminarEntidad(hoja, data, tipo) {
 }
 
 function agregarResponsable(data) {
-  sh(H_RESPONSABLES).appendRow([uid(), data.email.trim(), data.nombre || '', data.reportes || '', parseFloat(data.umbral_venta_grande)||100, data.activo !== false, '', '', '', new Date(), '']);
+  sh(H_RESPONSABLES).appendRow([uid(), data.email.trim(), data.nombre || '', data.reportes || '', parseFloat(data.umbral_venta_grande)||100, data.activo !== false, '', '', '', new Date(), '', '']);
   return {status:'success', message:'Responsable agregado con éxito.'};
 }
 
@@ -331,7 +657,14 @@ function getVentasConDetalle() {
 }
 
 function iniciarBD() {
-  [H_CATEGORIAS,H_PRODUCTOS,H_VENTAS,H_VENTA_DET,H_PAPELERA,H_ACTIVIDAD,H_RESPONSABLES,H_CAMBIOS,H_COMPRAS].forEach(crearHoja);
+  [H_CATEGORIAS,H_PRODUCTOS,H_VENTAS,H_VENTA_DET,H_PAPELERA,H_ACTIVIDAD,H_RESPONSABLES,H_CAMBIOS,H_COMPRAS,H_CAMBIOS_MOV,H_JORNADAS,H_JORNADA_DET].forEach(crearHoja);
+  // Migración de columnas nuevas en hojas que ya existían antes de esta actualización
+  // (cierre de caja, mini-cambios/entregas parciales, y Jornadas de Venta), sin borrar
+  // datos existentes.
+  try { asegurarColumnas_(sh(H_RESPONSABLES), ["ultimo_envio_cierre"]); } catch(e) {}
+  try { asegurarColumnas_(sh(H_CAMBIOS), ["monto_original"]); } catch(e) {}
+  try { asegurarColumnas_(sh(H_VENTAS), ["jornada_id"]); } catch(e) {}
+  try { asegurarColumnas_(sh(H_JORNADAS), ["valorado"]); } catch(e) {}
   return {status:'success', message:'BD inicializada correctamente.'};
 }
 
@@ -347,7 +680,9 @@ function exportarDatosCompletos() {
     const categorias = getData(H_CATEGORIAS).data || [];
     const ventas = getData(H_VENTAS).data || [];
     const detalle = getData(H_VENTA_DET).data || [];
-    return { status:'success', data: { productos, categorias, ventas, detalle_ventas: detalle, fecha_respaldo: new Date().toISOString() } };
+    const jornadas = getData(H_JORNADAS).data || [];
+    const detalleJornadas = getData(H_JORNADA_DET).data || [];
+    return { status:'success', data: { productos, categorias, ventas, detalle_ventas: detalle, jornadas, detalle_jornadas: detalleJornadas, fecha_respaldo: new Date().toISOString() } };
   } catch(e) {
     return { status:'error', message:'No se pudo generar la copia de seguridad: ' + e.message };
   }
@@ -376,8 +711,10 @@ function importarDatosCompletos(data) {
     if (Array.isArray(backup.productos)) resumen.push(`${reemplazarHoja_(H_PRODUCTOS, backup.productos, HDR.Productos)} productos`);
     if (Array.isArray(backup.ventas)) resumen.push(`${reemplazarHoja_(H_VENTAS, backup.ventas, HDR.Ventas)} ventas`);
     if (Array.isArray(backup.detalle_ventas)) resumen.push(`${reemplazarHoja_(H_VENTA_DET, backup.detalle_ventas, HDR.VentaDetalle)} líneas de detalle`);
+    if (Array.isArray(backup.jornadas)) resumen.push(`${reemplazarHoja_(H_JORNADAS, backup.jornadas, HDR.Jornadas)} jornadas`);
+    if (Array.isArray(backup.detalle_jornadas)) resumen.push(`${reemplazarHoja_(H_JORNADA_DET, backup.detalle_jornadas, HDR.DetalleJornada)} líneas de detalle de jornada`);
 
-    if (!resumen.length) return { status:'error', message:'El archivo no contiene datos reconocibles (productos, categorías, ventas o detalle_ventas).' };
+    if (!resumen.length) return { status:'error', message:'El archivo no contiene datos reconocibles (productos, categorías, ventas, detalle_ventas, jornadas o detalle_jornadas).' };
 
     log('Sistema', 'Importar Copia de Seguridad', resumen.join(', '));
     return { status:'success', message:'Datos restaurados: ' + resumen.join(', ') + '.' };
@@ -418,8 +755,13 @@ function configuracionInicial() {
 // Columnas de la hoja "Responsables" (1-based, para usar con getRange):
 // 1=id  2=email  3=nombre  4=reportes  5=umbral_venta_grande  6=activo
 // 7=ultimo_envio_mensual  8=ultimo_envio_anual  9=ultimo_envio_stock
-// 10=fecha_creado  11=ultimo_envio_backup
-const RESP_COL = { ultimo_envio_mensual: 7, ultimo_envio_anual: 8, ultimo_envio_stock: 9, ultimo_envio_backup: 11 };
+// 10=fecha_creado  11=ultimo_envio_backup  12=ultimo_envio_cierre
+const RESP_COL = { ultimo_envio_mensual: 7, ultimo_envio_anual: 8, ultimo_envio_stock: 9, ultimo_envio_backup: 11, ultimo_envio_cierre: 12 };
+
+// Compara si dos fechas caen en el mismo día calendario.
+function mismoDia_(d1, d2) {
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+}
 
 function activoResp_(r)          { return r.activo === true || r.activo === 'true'; }
 function tieneReporte_(r, tipo)  { return String(r.reportes || '').split(',').map(s => s.trim()).includes(tipo); }
@@ -443,6 +785,7 @@ function tareasDiarias() {
   const hoy = new Date();
   try { enviarAlertaStockBajo_(hoy); } catch(e) { log('Sistema','Error alerta stock', e.message); }
   try { respaldoDiario_(hoy); } catch(e) { log('Sistema','Error respaldo', e.message); }
+  try { enviarCierreCaja_(hoy); } catch(e) { log('Sistema','Error cierre de caja', e.message); }
   if (hoy.getDate() === 1) {
     try { enviarResumenMensual_(hoy); } catch(e) { log('Sistema','Error resumen mensual', e.message); }
   }
@@ -549,8 +892,10 @@ function construirBlobJSON_(fechaTxt) {
   const ventas = getData(H_VENTAS).data || [];
   const detalle = getData(H_VENTA_DET).data || [];
   const categorias = getData(H_CATEGORIAS).data || [];
+  const jornadas = getData(H_JORNADAS).data || [];
+  const detalleJornadas = getData(H_JORNADA_DET).data || [];
   return Utilities.newBlob(
-    JSON.stringify({ productos, ventas, detalle_ventas: detalle, categorias, fecha_respaldo: new Date().toISOString() }, null, 2),
+    JSON.stringify({ productos, ventas, detalle_ventas: detalle, categorias, jornadas, detalle_jornadas: detalleJornadas, fecha_respaldo: new Date().toISOString() }, null, 2),
     'application/json', `respaldo_${fechaTxt}.json`);
 }
 function construirBlobCSV_(fechaTxt) {
@@ -585,6 +930,93 @@ function respaldoDiario_(hoy, forzar) {
   return enviados;
 }
 
+// 🧾 Cierre de caja diario — se envía a la misma hora que todo lo demás
+// (junto con la copia de seguridad y las alertas de tareasDiarias). Incluye
+// un listado en texto de las ventas del día, los cambios que se entregaron
+// (descritos uno por uno) y los totales de ventas, cambios entregados y
+// ganancia estimada del día.
+function contenidoCierreCaja_(hoy) {
+  const fechaTxt = formatoFecha_(hoy);
+  const ventasHoy = (getData(H_VENTAS).data || []).filter(v => mismoDia_(new Date(v.fecha), hoy));
+  const idsVentasHoy = {}; ventasHoy.forEach(v => idsVentasHoy[String(v.id)] = true);
+  const lineasHoy = (getData(H_VENTA_DET).data || []).filter(d => idsVentasHoy[String(d.venta_id)]);
+
+  const costoPorProducto = {};
+  (getData(H_PRODUCTOS).data || []).forEach(p => { costoPorProducto[p.id] = parseFloat(p.precio_compra) || 0; });
+
+  let totalVentas = 0, totalGanancia = 0;
+  ventasHoy.forEach(v => totalVentas += parseFloat(v.total) || 0);
+  lineasHoy.forEach(l => {
+    const cant = parseInt(l.cantidad) || 0;
+    const precioVenta = parseFloat(l.precio_unitario) || 0;
+    const precioCompra = costoPorProducto[l.producto_id] !== undefined ? costoPorProducto[l.producto_id] : precioVenta;
+    totalGanancia += (precioVenta - precioCompra) * cant;
+  });
+
+  // Cambios entregados hoy (movimientos de tipo "Entrega parcial" o "Entrega total")
+  const entregasHoy = (getData(H_CAMBIOS_MOV).data || []).filter(m =>
+    mismoDia_(new Date(m.fecha), hoy) && (m.tipo === 'Entrega parcial' || m.tipo === 'Entrega total'));
+  const totalCambiosEntregados = entregasHoy.reduce((s, m) => s + (parseFloat(m.monto) || 0), 0);
+
+  const hora_ = d => new Date(d).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' });
+
+  const listadoVentasTexto = ventasHoy.length
+    ? ventasHoy.map(v => `${hora_(v.fecha)} — ${v.cliente_nombre || 'N/A'} — $${(parseFloat(v.total) || 0).toFixed(2)}`).join('\n')
+    : 'Sin ventas registradas hoy.';
+  const listadoCambiosTexto = entregasHoy.length
+    ? entregasHoy.map(m => `${hora_(m.fecha)} — ${m.cliente_nombre || 'N/A'} — $${(parseFloat(m.monto) || 0).toFixed(2)} (${m.tipo})`).join('\n')
+    : 'No se entregaron cambios hoy.';
+
+  const texto = `CIERRE DE CAJA — ${fechaTxt}
+========================================
+VENTAS DEL DÍA (${ventasHoy.length})
+${listadoVentasTexto}
+
+CAMBIOS ENTREGADOS (${entregasHoy.length})
+${listadoCambiosTexto}
+
+----------------------------------------
+Total vendido:             $${totalVentas.toFixed(2)}
+Total cambios entregados:  $${totalCambiosEntregados.toFixed(2)}
+Ganancia estimada del día: $${totalGanancia.toFixed(2)}
+========================================`;
+
+  const filasVentasHtml = ventasHoy.map(v =>
+    `<tr><td style="padding:4px 8px;">${hora_(v.fecha)}</td><td style="padding:4px 8px;">${v.cliente_nombre || 'N/A'}</td><td style="padding:4px 8px;">$${(parseFloat(v.total) || 0).toFixed(2)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="padding:4px 8px;color:#888;">Sin ventas registradas hoy.</td></tr>';
+
+  const filasCambiosHtml = entregasHoy.map(m =>
+    `<tr><td style="padding:4px 8px;">${hora_(m.fecha)}</td><td style="padding:4px 8px;">${m.cliente_nombre || 'N/A'}</td><td style="padding:4px 8px;">$${(parseFloat(m.monto) || 0).toFixed(2)}</td><td style="padding:4px 8px;">${m.tipo}</td></tr>`
+  ).join('') || '<tr><td colspan="4" style="padding:4px 8px;color:#888;">No se entregaron cambios hoy.</td></tr>';
+
+  const html = `
+    <h3>🧾 Cierre de Caja — ${fechaTxt}</h3>
+    <p>Ventas: <b>${ventasHoy.length}</b> &nbsp;|&nbsp; Total vendido: <b>$${totalVentas.toFixed(2)}</b> &nbsp;|&nbsp; Ganancia estimada: <b>$${totalGanancia.toFixed(2)}</b> &nbsp;|&nbsp; Cambios entregados: <b>$${totalCambiosEntregados.toFixed(2)}</b></p>
+    <h4>Ventas del día</h4>
+    <table border="1" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:520px;"><tr style="background:#f4f4f4;"><th style="padding:4px 8px;">Hora</th><th style="padding:4px 8px;">Cliente</th><th style="padding:4px 8px;">Total</th></tr>${filasVentasHtml}</table>
+    <h4>Cambios entregados (descritos)</h4>
+    <table border="1" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:520px;"><tr style="background:#f4f4f4;"><th style="padding:4px 8px;">Hora</th><th style="padding:4px 8px;">Cliente</th><th style="padding:4px 8px;">Monto</th><th style="padding:4px 8px;">Tipo</th></tr>${filasCambiosHtml}</table>
+    <p><b>Resumen del día:</b><br>Total vendido: $${totalVentas.toFixed(2)}<br>Total cambios entregados: $${totalCambiosEntregados.toFixed(2)}<br>Ganancia estimada: $${totalGanancia.toFixed(2)}</p>
+    <p style="color:#888;font-size:12px;">Listado en texto plano (adjunto abajo para copiar/imprimir):</p>
+    <pre style="background:#f7f7f7;padding:10px;border-radius:6px;white-space:pre-wrap;font-size:12px;">${texto}</pre>
+  `;
+
+  return { asunto: `🧾 Cierre de Caja — ${fechaTxt}`, html, texto };
+}
+
+function enviarCierreCaja_(hoy) {
+  const responsables = (getData(H_RESPONSABLES).data || []).filter(r =>
+    activoResp_(r) && tieneReporte_(r, 'cierre_caja') && !yaEnviadoHoy_(r.ultimo_envio_cierre, hoy));
+  if (!responsables.length) return;
+  const contenido = contenidoCierreCaja_(hoy);
+  responsables.forEach(r => {
+    try {
+      MailApp.sendEmail({ to: r.email, subject: contenido.asunto, htmlBody: contenido.html, body: contenido.texto });
+      marcarEnvioResponsable_(r.id, 'ultimo_envio_cierre', hoy);
+    } catch(e) {}
+  });
+}
+
 function construirCSVVentas_(ventas) {
   const headers = ['id','fecha','cliente_nombre','subtotal','total','pago_con','cambio','usuario','estado'];
   const filas = [headers.join(',')];
@@ -592,7 +1024,7 @@ function construirCSVVentas_(ventas) {
   return filas.join('\n');
 }
 
-const TIPOS_REPORTE_TODOS = ['mensual', 'anual', 'ventas_grandes', 'stock_bajo', 'backup_json', 'backup_csv'];
+const TIPOS_REPORTE_TODOS = ['mensual', 'anual', 'ventas_grandes', 'stock_bajo', 'backup_json', 'backup_csv', 'cierre_caja'];
 
 // Construye asunto/html/adjuntos de prueba para UN tipo de reporte. Devuelve
 // null si el tipo no existe.
@@ -625,6 +1057,10 @@ function construirPruebaTipo_(tipo, row, hoy) {
     case 'backup_csv': {
       const fechaTxt = formatoFecha_(hoy);
       return { asunto: `📊 Copia de seguridad CSV — ${fechaTxt}`, html: '<p>Este es un correo de <b>prueba</b>. Adjunto la copia de seguridad de ventas en formato CSV.</p>', adjuntos: [construirBlobCSV_(fechaTxt)] };
+    }
+    case 'cierre_caja': {
+      const c = contenidoCierreCaja_(hoy);
+      return { asunto: c.asunto, html: c.html, adjuntos: [] };
     }
     default:
       return null;
