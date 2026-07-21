@@ -100,7 +100,7 @@ function doGet(e) {
       case 'getCompras': r = getData(H_COMPRAS); break; // Obtener historial de compras
       case 'getResponsables': r = getData(H_RESPONSABLES); break;
       case 'getJornadaActiva': r = getJornadaActivaConDetalle(); break; // Jornada Activa (si existe) + su detalle por producto
-      case 'getHistorialJornadas': r = getData(H_JORNADAS); break; // Historial de Jornadas (todas, activas y cerradas)
+      case 'getHistorialJornadas': r = getHistorialJornadasConValorado_(); break; // Historial de Jornadas (todas, activas y cerradas), con "valorado" recalculado y autocorregido
       case 'getDetalleJornada': r = getDetalleJornadaPorId_(p.jornada_id); break; // Detalle producto-por-producto de UNA jornada
       case 'exportarDatos': r = exportarDatosCompletos(); break; // Copia de seguridad manual (descarga)
       default: r = {status:'error', message:`Acción '${p.action}' no válida.`};
@@ -134,6 +134,7 @@ function doPost(e) {
       case 'marcarCambioPagado': r = marcarCambioPagado(req); break;
       case 'agregarCambioManual': r = agregarCambioManual(req); break; // Ingresar un cambio pendiente manualmente
       case 'registrarEntregaCambio': r = registrarEntregaCambio(req); break; // Entregar un cambio (total o parcial / "mini cambio")
+      case 'editarMovimientoCambio': r = editarMovimientoCambio(req); break; // Corregir fecha/cliente/monto/tipo de un registro del Histórico de Cambios
       case 'registrarCompra': r = registrarCompra(req); break; // Registro de gastos y stock
       case 'agregarResponsable': r = agregarResponsable(req); break;
       case 'editarResponsable': r = editarResponsable(req); break;
@@ -190,6 +191,48 @@ function getDetalleJornadaPorId_(jornadaId) {
   const detalleData = getData(H_JORNADA_DET);
   const detalle = (detalleData.data || []).filter(d => String(d.jornada_id) === String(jornadaId));
   return { status:'success', data: detalle };
+}
+
+// Suma cantidad_cargada × precio_venta (precio "congelado" al momento de cargar
+// la jornada) de todas las líneas de DetalleJornada que pertenecen a una Jornada.
+// Este es el "Valorado $": cuánto dinero representa, en precio de venta, todo
+// lo que se cargó a la maleta — sin importar si ya se vendió o no.
+function calcularValoradoDesdeDetalle_(jornadaId, detalleTodos) {
+  let total = 0;
+  detalleTodos.forEach(d => {
+    if (String(d.jornada_id) === String(jornadaId)) {
+      total += (parseFloat(d.cantidad_cargada) || 0) * (parseFloat(d.precio_venta) || 0);
+    }
+  });
+  return total;
+}
+
+// Historial de Jornadas para la pantalla: en vez de confiar ciegamente en la
+// columna "valorado" ya guardada en la hoja (que puede haber quedado vacía o
+// en 0 en jornadas antiguas creadas antes de este cálculo), la recalcula
+// siempre a partir de DetalleJornada — la fuente real de verdad — y de paso
+// autocorrige la hoja si el valor guardado no coincide, para que la próxima
+// lectura ya sea directa.
+function getHistorialJornadasConValorado_() {
+  const jornadasRes = getData(H_JORNADAS);
+  if (jornadasRes.status !== 'success') return jornadasRes;
+
+  const detalleTodos = (getData(H_JORNADA_DET).data) || [];
+  const shJ = sh(H_JORNADAS);
+  const headers = shJ.getRange(1, 1, 1, Math.max(1, shJ.getLastColumn())).getValues()[0];
+  const idxValorado = headers.indexOf('valorado');
+
+  const jornadas = jornadasRes.data.map((j, i) => {
+    const valoradoCalculado = calcularValoradoDesdeDetalle_(j.id, detalleTodos);
+    const valoradoGuardado = parseFloat(j.valorado) || 0;
+    if (idxValorado > -1 && Math.abs(valoradoGuardado - valoradoCalculado) > 0.001) {
+      shJ.getRange(i + 2, idxValorado + 1).setValue(valoradoCalculado); // autocorrección
+    }
+    j.valorado = valoradoCalculado;
+    return j;
+  });
+
+  return { status:'success', data: jornadas };
 }
 
 // Inicia una nueva Jornada: valida que no exista otra activa, valida el stock
@@ -589,6 +632,40 @@ function registrarEntregaCambio(data) {
   log(data.usuario, esTotal ? 'Cambio Entregado (Total)' : 'Cambio Entregado (Parcial)', `Cliente: ${row[3]}, Entregado: $${montoEntrega.toFixed(2)}, Restante: $${(esTotal?0:nuevoPendiente).toFixed(2)}`);
 
   return {status:'success', message: esTotal ? 'Cambio entregado por completo.' : `Entrega parcial (mini cambio) registrada. Queda pendiente $${nuevoPendiente.toFixed(2)}.`};
+}
+
+// Corrige un registro ya existente del Histórico de Cambios (CambiosMovimientos):
+// fecha, cliente, monto y/o tipo. Es solo para arreglar datos mal ingresados
+// (p.ej. la fecha quedó mal, o en realidad sí se entregó el dinero) — NO
+// recalcula el "Cambio Pendiente" original (hoja Cambios) al que pertenece,
+// así que si se corrige aquí el monto de una entrega, revisa también el
+// cambio pendiente correspondiente si hiciera falta.
+function editarMovimientoCambio(data) {
+  const hoja = sh(H_CAMBIOS_MOV); const {idx} = findRow(hoja, data.id);
+  if (idx < 0) return {status:'error', message:'Movimiento no encontrado.'};
+
+  if (data.cliente_nombre !== undefined) {
+    const cliente = String(data.cliente_nombre).trim();
+    if (!cliente) return {status:'error', message:'Indica el nombre del cliente.'};
+    hoja.getRange(idx+1, 4).setValue(cliente);
+  }
+  if (data.fecha !== undefined) {
+    const f = new Date(data.fecha);
+    if (isNaN(f.getTime())) return {status:'error', message:'Fecha inválida.'};
+    hoja.getRange(idx+1, 3).setValue(f);
+  }
+  if (data.monto !== undefined) {
+    const m = parseFloat(data.monto);
+    if (isNaN(m) || m < 0) return {status:'error', message:'El monto debe ser un número mayor o igual a 0.'};
+    hoja.getRange(idx+1, 5).setValue(m);
+  }
+  if (data.tipo !== undefined) {
+    if (!['Generado','Entrega parcial','Entrega total'].includes(data.tipo)) return {status:'error', message:'Tipo de movimiento inválido.'};
+    hoja.getRange(idx+1, 6).setValue(data.tipo);
+  }
+
+  log(data.usuario, 'Movimiento de Cambio Editado', `Id: ${data.id}`);
+  return {status:'success', message:'Movimiento actualizado con éxito.'};
 }
 
 function editarProducto(data) {

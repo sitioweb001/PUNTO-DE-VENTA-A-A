@@ -309,8 +309,8 @@
 
       <div class="data-table-container">
         <table class="data-table">
-          <thead><tr><th>Fecha</th><th>Cliente</th><th>Movimiento</th><th>Monto</th><th>Usuario</th></tr></thead>
-          <tbody id="cambiosHistorialBody"><tr><td colspan="5" class="text-center text-muted">Cargando...</td></tr></tbody>
+          <thead><tr><th>Fecha</th><th>Cliente</th><th>Movimiento</th><th>Monto</th><th>Usuario</th><th>Acción</th></tr></thead>
+          <tbody id="cambiosHistorialBody"><tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -709,6 +709,28 @@
   </div>
 </div>
 
+<!-- Modal Editar Movimiento de Cambio (Histórico) -->
+<div id="modalEditarMovimientoCambio" class="modal hidden">
+  <div class="modal-content">
+    <button class="modal-close" onclick="cerrarModal('modalEditarMovimientoCambio')"><i class="fas fa-times"></i></button>
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-edit"></i> Editar Movimiento</h3>
+    <p class="text-muted" style="margin-bottom:1rem;">Corrige la fecha, el cliente, el monto o el tipo de este registro del histórico (por ejemplo, si la fecha quedó mal o el dinero sí se regresó).</p>
+    <div class="form-group"><label>Cliente:</label><input type="text" id="emc_cliente" placeholder="Nombre del cliente"></div>
+    <div class="form-group"><label>Fecha y hora:</label><input type="datetime-local" id="emc_fecha"></div>
+    <div class="form-group"><label>Monto ($):</label><input type="number" id="emc_monto" min="0" step="0.01"></div>
+    <div class="form-group">
+      <label>Tipo de movimiento:</label>
+      <select id="emc_tipo">
+        <option value="Generado">Faltante (generado)</option>
+        <option value="Entrega parcial">Regresado (parcial / mini cambio)</option>
+        <option value="Entrega total">Regresado (total)</option>
+      </select>
+    </div>
+    <input type="hidden" id="emc_id">
+    <button class="btn primary-btn" style="width:100%; height:50px; margin-top:10px;" onclick="guardarEdicionMovimientoCambio()"><i class="fas fa-save"></i> Guardar Cambios</button>
+  </div>
+</div>
+
 <!-- Modal División del Total Recaudado entre 2 personas -->
 <div id="modalDivision" class="modal hidden">
   <div class="modal-content">
@@ -823,16 +845,51 @@
 
 <!-- Modal Detalle de Jornada (desde Historial) -->
 <div id="modalDetalleJornada" class="modal hidden">
-  <div class="modal-content" style="max-width:960px;">
+  <div class="modal-content" style="max-width:1000px;">
     <button class="modal-close" onclick="cerrarModal('modalDetalleJornada')"><i class="fas fa-times"></i></button>
     <h3 style="margin-bottom: 0.3rem;"><i class="fas fa-list"></i> Detalle de Jornada</h3>
     <p class="text-muted" id="dj_titulo_info" style="margin-bottom:1rem;"></p>
+
+    <!-- Resumen: cantidad total y su valor en dinero, para lo cargado, lo vendido y lo sobrante -->
+    <div class="form-grid" style="margin-bottom:1rem;">
+      <div class="summary-card" style="margin:0;">
+        <div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Total Cargado</div>
+        <h3 id="dj_resumen_cargado" style="margin:5px 0 0;">0 <span style="font-size:0.85rem; font-weight:600;">unid.</span></h3>
+        <div style="color:var(--primary-color); font-weight:bold; margin-top:4px;" id="dj_resumen_cargado_dinero">$0.00</div>
+      </div>
+      <div class="summary-card" style="margin:0; background:rgba(40,167,69,0.12); border-color:var(--success-color);">
+        <div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Total Vendido</div>
+        <h3 id="dj_resumen_vendido" style="margin:5px 0 0; color:var(--success-color);">0 <span style="font-size:0.85rem; font-weight:600;">unid.</span></h3>
+        <div style="color:var(--success-color); font-weight:bold; margin-top:4px;" id="dj_resumen_vendido_dinero">$0.00</div>
+      </div>
+      <div class="summary-card" style="margin:0; background:rgba(220,53,69,0.10); border-color:var(--danger-color);">
+        <div class="text-muted" style="font-weight:bold; font-size:0.75rem; text-transform:uppercase;">Sobrante (Devuelto)</div>
+        <h3 id="dj_resumen_sobrante" style="margin:5px 0 0; color:var(--danger-color);">0 <span style="font-size:0.85rem; font-weight:600;">unid.</span></h3>
+        <div style="color:var(--danger-color); font-weight:bold; margin-top:4px;" id="dj_resumen_sobrante_dinero">$0.00</div>
+      </div>
+    </div>
+
     <div class="data-table-container">
       <table class="data-table table-compact">
-        <thead><tr><th>Producto</th><th>Cargado</th><th>Vendido</th><th>Devuelto</th><th>P.Venta</th><th>Ingresos</th><th>Ganancia</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Cargado</th><th>Vendido</th><th>Devuelto</th><th>P.Venta</th><th>Ingresos</th><th>Ganancia</th><th>Valorado</th><th>Valor Sobrante</th></tr></thead>
         <tbody id="detalleJornadaBody"></tbody>
+        <tfoot>
+          <tr style="font-weight:800; background:var(--primary-light);">
+            <td>TOTAL</td>
+            <td id="dj_total_cargado">0</td>
+            <td id="dj_total_vendido">0</td>
+            <td id="dj_total_devuelto">0</td>
+            <td>—</td>
+            <td id="dj_total_ingresos" style="color:var(--primary-color);">$0.00</td>
+            <td id="dj_total_ganancia" style="color:var(--success-color);">$0.00</td>
+            <td id="dj_total_valorado" style="color:var(--primary-color);">$0.00</td>
+            <td id="dj_total_sobrante_valor" style="color:var(--danger-color);">$0.00</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
+
+    <button class="btn danger-btn" style="width:100%; height:50px; margin-top:1rem;" onclick="imprimirDetalleJornadaPDF()"><i class="fas fa-file-pdf"></i> Imprimir Detalle en PDF</button>
   </div>
 </div>
 
@@ -856,6 +913,7 @@
   let jornadaDetalleGlobal = [];       // detalle por producto de la jornada activa: [{producto_id, cantidad_cargada, cantidad_vendida, ...}]
   let historialJornadasGlobal = [];
   let resumenJornadaActual = null;     // último resumen de cierre (para el botón "Imprimir PDF")
+  let detalleJornadaActualPDF = null;  // último Detalle de Jornada abierto desde el Historial (para el botón "Imprimir Detalle en PDF")
   
   // MODO OFFLINE VARS
   let isOfflineModeEnabled = localStorage.getItem('pos_offline_enabled') === 'true';
@@ -1262,19 +1320,100 @@
       const detalle = res.status === 'success' ? res.data : [];
       const jornada = historialJornadasGlobal.find(j => String(j.id) === String(id));
       document.getElementById('dj_titulo_info').textContent = jornada ? `${jornada.usuario || 'N/A'} — ${jornada.fecha_inicio ? new Date(jornada.fecha_inicio).toLocaleDateString() : ''}` : '';
-      document.getElementById('detalleJornadaBody').innerHTML = detalle.map(d => `
+
+      let totCargado = 0, totVendido = 0, totDevuelto = 0, totIngresos = 0, totGanancia = 0, totValorado = 0, totSobranteValor = 0;
+      const filasCalculadas = detalle.map(d => {
+        const cargada = parseInt(d.cantidad_cargada) || 0;
+        const vendida = parseInt(d.cantidad_vendida) || 0;
+        const devuelta = parseInt(d.cantidad_devuelta) || 0;
+        const precioVenta = parseFloat(d.precio_venta) || 0;
+        const ingresos = vendida * precioVenta;
+        const ganancia = parseFloat(d.ganancia) || 0;
+        const valorado = cargada * precioVenta;       // valor en $ de todo lo cargado de este producto
+        const sobranteValor = devuelta * precioVenta; // valor en $ de lo que sobró (no se vendió) de este producto
+
+        totCargado += cargada; totVendido += vendida; totDevuelto += devuelta;
+        totIngresos += ingresos; totGanancia += ganancia; totValorado += valorado; totSobranteValor += sobranteValor;
+
+        return { producto_nombre: d.producto_nombre, cargada, vendida, devuelta, precioVenta, ingresos, ganancia, valorado, sobranteValor };
+      });
+
+      document.getElementById('detalleJornadaBody').innerHTML = filasCalculadas.map(f => `
         <tr>
-          <td><b>${d.producto_nombre}</b></td>
-          <td>${d.cantidad_cargada}</td>
-          <td>${d.cantidad_vendida}</td>
-          <td>${d.cantidad_devuelta}</td>
-          <td>$${(parseFloat(d.precio_venta)||0).toFixed(2)}</td>
-          <td>$${((parseInt(d.cantidad_vendida)||0)*(parseFloat(d.precio_venta)||0)).toFixed(2)}</td>
-          <td style="color:var(--success-color); font-weight:bold;">$${(parseFloat(d.ganancia)||0).toFixed(2)}</td>
-        </tr>`).join('') || `<tr><td colspan="7" class="text-center text-muted">Sin detalle.</td></tr>`;
+          <td><b>${f.producto_nombre}</b></td>
+          <td>${f.cargada}</td>
+          <td>${f.vendida}</td>
+          <td>${f.devuelta}</td>
+          <td>$${f.precioVenta.toFixed(2)}</td>
+          <td>$${f.ingresos.toFixed(2)}</td>
+          <td style="color:var(--success-color); font-weight:bold;">$${f.ganancia.toFixed(2)}</td>
+          <td style="color:var(--primary-color); font-weight:bold;">$${f.valorado.toFixed(2)}</td>
+          <td style="color:var(--danger-color); font-weight:bold;">$${f.sobranteValor.toFixed(2)}</td>
+        </tr>`).join('') || `<tr><td colspan="9" class="text-center text-muted">Sin detalle.</td></tr>`;
+
+      document.getElementById('dj_total_cargado').textContent = totCargado;
+      document.getElementById('dj_total_vendido').textContent = totVendido;
+      document.getElementById('dj_total_devuelto').textContent = totDevuelto;
+      document.getElementById('dj_total_ingresos').textContent = `$${totIngresos.toFixed(2)}`;
+      document.getElementById('dj_total_ganancia').textContent = `$${totGanancia.toFixed(2)}`;
+      document.getElementById('dj_total_valorado').textContent = `$${totValorado.toFixed(2)}`;
+      document.getElementById('dj_total_sobrante_valor').textContent = `$${totSobranteValor.toFixed(2)}`;
+
+      // Tarjetas de resumen: cantidad total y cuánto dinero representa cada una
+      document.getElementById('dj_resumen_cargado').innerHTML = `${totCargado} <span style="font-size:0.85rem; font-weight:600;">unid.</span>`;
+      document.getElementById('dj_resumen_cargado_dinero').textContent = `$${totValorado.toFixed(2)}`;
+      document.getElementById('dj_resumen_vendido').innerHTML = `${totVendido} <span style="font-size:0.85rem; font-weight:600;">unid.</span>`;
+      document.getElementById('dj_resumen_vendido_dinero').textContent = `$${totIngresos.toFixed(2)}`;
+      document.getElementById('dj_resumen_sobrante').innerHTML = `${totDevuelto} <span style="font-size:0.85rem; font-weight:600;">unid.</span>`;
+      document.getElementById('dj_resumen_sobrante_dinero').textContent = `$${totSobranteValor.toFixed(2)}`;
+
+      // Se guarda todo lo ya calculado para que el botón "Imprimir Detalle en PDF" no tenga que recalcular ni volver a pedir datos al servidor
+      detalleJornadaActualPDF = {
+        titulo: jornada ? `${jornada.usuario || 'N/A'} — ${jornada.fecha_inicio ? new Date(jornada.fecha_inicio).toLocaleDateString() : ''}` : '',
+        filas: filasCalculadas,
+        totales: { totCargado, totVendido, totDevuelto, totIngresos, totGanancia, totValorado, totSobranteValor }
+      };
+
       abrirModal('modalDetalleJornada');
     } catch(e) { showToast('Error de red al cargar el detalle.', 'error'); }
     hideSpinner();
+  }
+
+  function imprimirDetalleJornadaPDF() {
+    if (!detalleJornadaActualPDF) return;
+    if (!window.jspdf) return showToast('No se pudo cargar el generador de PDF. Verifica tu conexión a internet.', 'error');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const d = detalleJornadaActualPDF;
+    const t = d.totales;
+
+    doc.setFontSize(16); doc.setTextColor(9, 25, 51);
+    doc.text('Detalle de Jornada — ERP POS LITE', 14, 18);
+    doc.setFontSize(10); doc.setTextColor(120);
+    doc.text(d.titulo || '', 14, 25);
+
+    // Resumen: cantidad total y cuánto dinero representa cada una (cargado, vendido, sobrante)
+    doc.setFontSize(11); doc.setTextColor(0);
+    doc.text(`Cargado: ${t.totCargado} unid. — $${t.totValorado.toFixed(2)}`, 14, 34);
+    doc.text(`Vendido: ${t.totVendido} unid. — $${t.totIngresos.toFixed(2)}`, 14, 41);
+    doc.text(`Sobrante (Devuelto): ${t.totDevuelto} unid. — $${t.totSobranteValor.toFixed(2)}`, 14, 48);
+    doc.text(`Ganancia total: $${t.totGanancia.toFixed(2)}`, 14, 55);
+
+    const filas = d.filas.map(f => [
+      f.producto_nombre, f.cargada, f.vendida, f.devuelta,
+      `$${f.precioVenta.toFixed(2)}`, `$${f.ingresos.toFixed(2)}`, `$${f.ganancia.toFixed(2)}`,
+      `$${f.valorado.toFixed(2)}`, `$${f.sobranteValor.toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+      startY: 62,
+      head: [['Producto','Cargado','Vendido','Devuelto','P. Venta','Ingresos','Ganancia','Valorado','Valor Sobrante']],
+      body: filas.length ? filas : [['—','—','—','—','—','—','—','—','—']],
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [9, 25, 51] }
+    });
+
+    doc.save(`detalle_jornada_${new Date().toISOString().split('T')[0]}.pdf`);
   }
 
   // --- PUNTO DE VENTA ---
@@ -1676,7 +1815,7 @@
   // --- HISTÓRICO DE CAMBIOS (filtro día/semana/mes/año/todo) ---
   async function loadCambiosHistorial() {
     const body = document.getElementById('cambiosHistorialBody');
-    body.innerHTML = '<tr><td colspan="5" class="text-center">Cargando...</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="text-center">Cargando...</td></tr>';
     try {
       const res = await fetch(`${SCRIPT_URL}?action=getCambiosMovimientos`).then(r=>r.json());
       cambiosMovimientosGlobal = (res.status==='success') ? res.data : [];
@@ -1712,12 +1851,58 @@
       const monto = parseFloat(m.monto) || 0;
       if (m.tipo === 'Generado') totalGenerado += monto; else totalEntregado += monto;
       const etq = ETIQUETAS[m.tipo] || { texto: m.tipo, bg: 'var(--border-color)', color: '#000' };
-      return `<tr><td>${new Date(m.fecha).toLocaleDateString()} ${new Date(m.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><b>${m.cliente_nombre||'N/A'}</b></td><td><span style="background:${etq.bg}; color:${etq.color}; padding:4px 8px; border-radius:10px; font-size:0.78rem; font-weight:bold; white-space:nowrap;">${etq.texto}</span></td><td style="font-weight:bold;">$${monto.toFixed(2)}</td><td>${m.usuario||'—'}</td></tr>`;
+      return `<tr><td>${new Date(m.fecha).toLocaleDateString()} ${new Date(m.fecha).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><b>${m.cliente_nombre||'N/A'}</b></td><td><span style="background:${etq.bg}; color:${etq.color}; padding:4px 8px; border-radius:10px; font-size:0.78rem; font-weight:bold; white-space:nowrap;">${etq.texto}</span></td><td style="font-weight:bold;">$${monto.toFixed(2)}</td><td>${m.usuario||'—'}</td><td><button class="btn secondary-btn" style="padding:5px 10px; font-size:0.78rem; white-space:nowrap;" onclick="abrirModalEditarMovimientoCambio('${m.id}')"><i class="fas fa-edit"></i> Editar</button></td></tr>`;
     }).join('');
 
-    document.getElementById('cambiosHistorialBody').innerHTML = html || `<tr><td colspan="5" class="text-center text-muted">No hay movimientos en este período.</td></tr>`;
+    document.getElementById('cambiosHistorialBody').innerHTML = html || `<tr><td colspan="6" class="text-center text-muted">No hay movimientos en este período.</td></tr>`;
     document.getElementById('cambios_hist_total_entregado').textContent = `$${totalEntregado.toFixed(2)}`;
     document.getElementById('cambios_hist_total_generado').textContent = `$${totalGenerado.toFixed(2)}`;
+  }
+
+  // --- EDITAR MOVIMIENTO DEL HISTÓRICO DE CAMBIOS (corregir fecha/cliente/monto/tipo) ---
+  function abrirModalEditarMovimientoCambio(id) {
+    const m = cambiosMovimientosGlobal.find(x => String(x.id) === String(id));
+    if (!m) return showToast('No se encontró el movimiento.', 'error');
+
+    document.getElementById('emc_id').value = m.id;
+    document.getElementById('emc_cliente').value = m.cliente_nombre || '';
+    document.getElementById('emc_monto').value = (parseFloat(m.monto) || 0).toFixed(2);
+    document.getElementById('emc_tipo').value = m.tipo || 'Generado';
+
+    // La fecha viene en ISO (UTC); se pasa a hora LOCAL para el input datetime-local
+    const f = m.fecha ? new Date(m.fecha) : new Date();
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('emc_fecha').value = `${f.getFullYear()}-${pad(f.getMonth()+1)}-${pad(f.getDate())}T${pad(f.getHours())}:${pad(f.getMinutes())}`;
+
+    abrirModal('modalEditarMovimientoCambio');
+  }
+
+  async function guardarEdicionMovimientoCambio() {
+    const id = document.getElementById('emc_id').value;
+    const cliente = document.getElementById('emc_cliente').value.trim();
+    const monto = parseFloat(document.getElementById('emc_monto').value);
+    const tipo = document.getElementById('emc_tipo').value;
+    const fechaLocal = document.getElementById('emc_fecha').value; // "YYYY-MM-DDTHH:mm" en hora local del navegador
+
+    if (!cliente) return showToast('Indica el nombre del cliente.', 'error');
+    if (isNaN(monto) || monto < 0) return showToast('Indica un monto válido.', 'error');
+    if (!fechaLocal) return showToast('Indica la fecha y hora.', 'error');
+
+    showSpinner('Guardando cambios...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({
+        action: 'editarMovimientoCambio',
+        id, cliente_nombre: cliente, monto, tipo,
+        fecha: new Date(fechaLocal).toISOString(),
+        usuario: 'admin'
+      })}).then(r=>r.json());
+      if (res.status === 'success') {
+        showToast(res.message || 'Movimiento actualizado.');
+        cerrarModal('modalEditarMovimientoCambio');
+        loadCambiosHistorial();
+      } else showToast(res.message || 'No se pudo actualizar el movimiento.', 'error');
+    } catch(e) { showToast('Error de red al actualizar el movimiento.', 'error'); }
+    hideSpinner();
   }
 
   // --- COMPRAS / REABASTECIMIENTO ---
