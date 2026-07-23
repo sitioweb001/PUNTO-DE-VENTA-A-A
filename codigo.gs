@@ -144,6 +144,7 @@ function doPost(e) {
       case 'enviarBackupAhora': r = enviarBackupManual(); break; // Forzar envío de backup a responsables
       case 'iniciarJornada': r = iniciarJornada(req); break; // Iniciar una nueva Jornada de Venta (carga Stock de Jornada)
       case 'cerrarJornada': r = cerrarJornada(req); break; // Cerrar la Jornada activa (devuelve sobrante al inventario global)
+      case 'reiniciarJornada': r = reiniciarJornada(req); break; // Reabrir una Jornada Cerrada, dejándola como estaba justo antes de cerrarla
       default: r = {status:'error', message:'Acción no reconocida'};
     }
     return resp(r);
@@ -377,6 +378,68 @@ function cerrarJornada(data) {
       detalle: detalleResumen
     }
   };
+}
+
+// Reinicia (reabre) una Jornada ya Cerrada, dejándola EXACTAMENTE como estaba
+// justo antes de cerrarla: la vuelve a poner "Activa" y deshace lo que hizo
+// cerrarJornada línea por línea. Concretamente, por cada producto de su
+// DetalleJornada, le quita de vuelta al inventario global el sobrante que se
+// le había devuelto al cerrar (ese sobrante regresa a la maleta) y pone
+// cantidad_devuelta/ganancia de esa línea otra vez en 0. Las unidades ya
+// vendidas (cantidad_vendida) NO se tocan: esas ventas ya ocurrieron y siguen
+// siendo válidas, tal como estaban antes del cierre. También limpia fecha_fin,
+// hora_fin y los totales de cierre de la Jornada (ventas_totales,
+// productos_vendidos, productos_devueltos, ganancia), que vuelven a 0 igual
+// que cuando la jornada se inició por primera vez. No permite reiniciar una
+// jornada que no está Cerrada, ni si ya existe otra Jornada activa en este
+// momento (nunca puede haber dos jornadas activas a la vez).
+function reiniciarJornada(data) {
+  const shJ = sh(H_JORNADAS); const shDJ = sh(H_JORNADA_DET); const shP = sh(H_PRODUCTOS);
+  const { row: rowJ, idx: idxJ } = findRow(shJ, data.id);
+  if (!rowJ) return { status:'error', message:'Jornada no encontrada.' };
+  if (String(rowJ[6]) !== 'Cerrada') return { status:'error', message:'Solo se puede reiniciar una jornada que ya esté cerrada.' };
+
+  if (obtenerJornadaActiva_()) {
+    return { status:'error', message:'Ya existe otra Jornada activa. Debes cerrarla antes de reiniciar esta.' };
+  }
+
+  const detVals = shDJ.getDataRange().getValues();
+  let totalCargado = 0;
+
+  for (let i = 1; i < detVals.length; i++) {
+    if (String(detVals[i][1]) !== String(data.id)) continue;
+
+    const productoId = detVals[i][2];
+    const cargada     = parseInt(detVals[i][4]) || 0;
+    const devuelta    = parseInt(detVals[i][6]) || 0;
+
+    // Quitar del inventario global el sobrante que se le había devuelto al
+    // cerrar (vuelve a formar parte del Stock de Jornada, como cuando estaba activa)
+    if (devuelta > 0) {
+      const { idx: idxP } = findRow(shP, productoId);
+      if (idxP > -1) {
+        const stockActual = parseInt(shP.getRange(idxP + 1, 7).getValue()) || 0;
+        shP.getRange(idxP + 1, 7).setValue(Math.max(0, stockActual - devuelta));
+      }
+    }
+
+    shDJ.getRange(i + 1, 7).setValue(0);  // cantidad_devuelta vuelve a 0
+    shDJ.getRange(i + 1, 10).setValue(0); // ganancia de la línea vuelve a 0 (se recalcula al cerrar de nuevo)
+
+    totalCargado += cargada;
+  }
+
+  shJ.getRange(idxJ + 1, 4).setValue('');       // fecha_fin
+  shJ.getRange(idxJ + 1, 5).setValue('');       // hora_fin
+  shJ.getRange(idxJ + 1, 7).setValue('Activa'); // estado
+  shJ.getRange(idxJ + 1, 8).setValue(0);        // ventas_totales
+  shJ.getRange(idxJ + 1, 9).setValue(0);        // productos_vendidos
+  shJ.getRange(idxJ + 1, 11).setValue(0);       // productos_devueltos
+  shJ.getRange(idxJ + 1, 12).setValue(0);       // ganancia
+
+  log(data.usuario, 'Jornada Reiniciada', `Jornada vuelta a Activa tal como estaba justo antes de cerrarla (${totalCargado} unidad(es) en la maleta).`);
+
+  return { status:'success', message:'Jornada reiniciada con éxito. Vuelve a estar Activa, tal como estaba justo antes de cerrarla.' };
 }
 
 function registrarVenta(data) {

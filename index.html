@@ -889,7 +889,10 @@
       </table>
     </div>
 
-    <button class="btn danger-btn" style="width:100%; height:50px; margin-top:1rem;" onclick="imprimirDetalleJornadaPDF()"><i class="fas fa-file-pdf"></i> Imprimir Detalle en PDF</button>
+    <div style="display:flex; gap:10px; margin-top:1rem; flex-wrap:wrap;">
+      <button class="btn danger-btn" style="flex:1; min-width:220px; height:50px;" onclick="imprimirDetalleJornadaPDF()"><i class="fas fa-file-pdf"></i> Imprimir Detalle en PDF</button>
+      <button id="btnReiniciarJornadaDetalle" class="btn warning-btn" style="flex:1; min-width:220px; height:50px; display:none;" onclick="reiniciarJornadaDesdeDetalle()"><i class="fas fa-undo"></i> Reiniciar jornada</button>
+    </div>
   </div>
 </div>
 
@@ -914,6 +917,7 @@
   let historialJornadasGlobal = [];
   let resumenJornadaActual = null;     // último resumen de cierre (para el botón "Imprimir PDF")
   let detalleJornadaActualPDF = null;  // último Detalle de Jornada abierto desde el Historial (para el botón "Imprimir Detalle en PDF")
+  let jornadaEnDetalleActual = null;   // jornada (objeto completo) actualmente abierta en el modal Detalle de Jornada (para el botón "Reiniciar jornada")
   
   // MODO OFFLINE VARS
   let isOfflineModeEnabled = localStorage.getItem('pos_offline_enabled') === 'true';
@@ -1321,6 +1325,12 @@
       const jornada = historialJornadasGlobal.find(j => String(j.id) === String(id));
       document.getElementById('dj_titulo_info').textContent = jornada ? `${jornada.usuario || 'N/A'} — ${jornada.fecha_inicio ? new Date(jornada.fecha_inicio).toLocaleDateString() : ''}` : '';
 
+      // "Reiniciar jornada" solo tiene sentido para una jornada ya Cerrada
+      // (una jornada Activa no necesita reiniciarse, ya está en curso)
+      jornadaEnDetalleActual = jornada || null;
+      const btnReiniciar = document.getElementById('btnReiniciarJornadaDetalle');
+      if (btnReiniciar) btnReiniciar.style.display = (jornada && jornada.estado === 'Cerrada') ? '' : 'none';
+
       let totCargado = 0, totVendido = 0, totDevuelto = 0, totIngresos = 0, totGanancia = 0, totValorado = 0, totSobranteValor = 0;
       const filasCalculadas = detalle.map(d => {
         const cargada = parseInt(d.cantidad_cargada) || 0;
@@ -1414,6 +1424,31 @@
     });
 
     doc.save(`detalle_jornada_${new Date().toISOString().split('T')[0]}.pdf`);
+  }
+
+  // Reinicia (reabre) la jornada que se está viendo en el modal de Detalle,
+  // dejándola tal como estaba justo antes de cerrarla: vuelve a estar Activa,
+  // y el sobrante que se le había devuelto al inventario global se le quita
+  // de vuelta (regresa a la maleta). Las ventas ya realizadas no se tocan.
+  async function reiniciarJornadaDesdeDetalle() {
+    if (!jornadaEnDetalleActual) return;
+    if (jornadaActivaGlobal && jornadaActivaGlobal.estado === 'Activa' && String(jornadaActivaGlobal.id) !== String(jornadaEnDetalleActual.id)) {
+      return showToast('Ya existe otra Jornada activa. Ciérrala antes de reiniciar esta.', 'warning');
+    }
+    if (!confirm('¿Confirmas reiniciar esta jornada? Volverá a estar Activa, tal como estaba justo antes de cerrarla: el sobrante que se había devuelto al inventario global se le quitará de nuevo (regresa a la maleta). No podrás iniciar otra jornada mientras esta siga activa.')) return;
+
+    showSpinner('Reiniciando jornada...');
+    try {
+      const res = await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'reiniciarJornada', id: jornadaEnDetalleActual.id, usuario:'admin'})}).then(r=>r.json());
+      if (res.status === 'success') {
+        showToast(res.message || 'Jornada reiniciada.');
+        cerrarModal('modalDetalleJornada');
+        await loadJornadaActiva();
+        await loadInventario();
+        await loadHistorialJornadas();
+      } else showToast(res.message || 'No se pudo reiniciar la jornada.', 'error');
+    } catch(e) { showToast('Error de red al reiniciar la jornada.', 'error'); }
+    hideSpinner();
   }
 
   // --- PUNTO DE VENTA ---
